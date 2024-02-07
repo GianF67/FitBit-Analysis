@@ -4,9 +4,8 @@
 # COMMAND ----------
 
 #the following code will delete all yours DBFS 
-#display(dbutils.fs.ls("/FileStore"))
+#display(dbutils.fs.ls("/FileStore/"))
 #dbutils.fs.rm("/FileStore/tables", recurse=True)
-aaa
 
 # COMMAND ----------
 
@@ -48,7 +47,7 @@ dailyHeartrate = spark.read \
     .option("inferSchema", inferSchema) \
     .option("header", "true") \
     .option("sep", ",") \
-    .load("/FileStore/tables/heartrate.csv")
+    .load("/FileStore/tables/dailyHeartrate.csv")
 
 dailyIntensities = spark.read \
     .format("csv") \
@@ -117,6 +116,25 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %md #2. Process and Data Cleaning
+
+# COMMAND ----------
+
+from pyspark.sql.functions import to_date
+from pyspark.sql.types import DateType
+import pandas as pd
+
+# Assuming dailySleep is your DataFrame containing sleep data
+# Splitting the SleepDay column by space and taking the first part
+dailySleepFormatted1 = dailySleep.withColumn("SleepDay", split(dailySleep.SleepDay, " ")[0])
+
+# Converting the SleepDay column to date type
+dailySleepFormatted2 = dailySleepFormatted1.withColumn("SleepDay", to_date(dailySleepFormatted1.SleepDay, "M/d/yyyy").cast(DateType()))
+
+# Displaying the modified DataFrame
+display(dailySleepFormatted2)
+
+
+    
 
 # COMMAND ----------
 
@@ -316,7 +334,7 @@ result3 = (
 
 display(result3)
 
-import matplotlib.pyplot as plt 
+'''import matplotlib.pyplot as plt 
 import numpy as np 
 
 x = result3.select('ActivityDate')
@@ -329,7 +347,7 @@ graph2 = plt.plot(x, y2, label = "Distance")
 graph3 = plt.plot(x, y3, label = "Calories") 
 
 plt.legend() 
-plt.show()
+plt.show()'''
 
 # COMMAND ----------
 
