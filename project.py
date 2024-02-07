@@ -123,7 +123,6 @@ from pyspark.sql.functions import to_date
 from pyspark.sql.types import DateType
 import pandas as pd
 
-# Assuming dailySleep is your DataFrame containing sleep data
 # Splitting the SleepDay column by space and taking the first part
 dailySleepFormatted1 = dailySleep.withColumn("SleepDay", split(dailySleep.SleepDay, " ")[0])
 
@@ -139,7 +138,15 @@ display(dailySleepFormatted3)
 
 # COMMAND ----------
 
+from pyspark.sql.functions import avg
 
+ds = dailySleepFormatted3
+
+# Drop unnecessary columns and calculate average TotalTimeInBed grouped by Weekday
+sleepmean = ds.drop("Id", "SleepDay", "TotalSleepRecords", "TotalTimeInBed").groupBy("Weekday").agg(round(avg("TotalMinutesAsleep")).alias("AvgSleepMinutes"))
+
+# Display the result
+display(sleepmean)
 
 # COMMAND ----------
 
