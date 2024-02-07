@@ -22,7 +22,7 @@
 
 # COMMAND ----------
 
-# MAGIC %md #1. Import datasets
+# MAGIC %md #1) Import datasets
 
 # COMMAND ----------
 
@@ -93,20 +93,6 @@ hourlySteps = spark.read \
 
 # COMMAND ----------
 
-#df = dailyHeartrate
-#df = dailyActivity
-#df = dailyCalories
-#df = dailyIntensities
-#df = dailySteps
-df = dailySleep
-#df = weightLogInfo
-#df = minuteMETs
-
-#df.printSchema()
-display(df)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC Questions:
 # MAGIC - What are some trends in smart device usage?
@@ -115,75 +101,103 @@ display(df)
 
 # COMMAND ----------
 
-# MAGIC %md #2. Process and Data Cleaning
-
-# COMMAND ----------
-
-from pyspark.sql.functions import to_date
-from pyspark.sql.types import DateType
-import pandas as pd
-
-# Splitting the SleepDay column by space and taking the first part
-dailySleepFormatted1 = dailySleep.withColumn("SleepDay", split(dailySleep.SleepDay, " ")[0])
-
-# Converting the SleepDay column to date type
-dailySleepFormatted2 = dailySleepFormatted1.withColumn("SleepDay", to_date(dailySleepFormatted1.SleepDay, "M/d/yyyy").cast(DateType()))
-
-# Displaying the modified DataFrame
-dailySleepFormatted3 = dailySleepFormatted2.withColumn("Weekday", dayofweek("SleepDay"))
-dailySleepFormatted3 = dailySleepFormatted2.withColumn("Weekday", date_format(col("SleepDay"), "E"))
-
-display(dailySleepFormatted3)
-
-
-# COMMAND ----------
-
-from pyspark.sql.functions import avg
-
-ds = dailySleepFormatted3
-
-# Drop unnecessary columns and calculate average TotalTimeInBed grouped by Weekday
-sleepmean = ds.drop("Id", "SleepDay", "TotalSleepRecords", "TotalTimeInBed").groupBy("Weekday").agg(round(avg("TotalMinutesAsleep")).alias("AvgSleepMinutes"))
-
-# Display the result
-display(sleepmean)
+# MAGIC %md #2) Process and Data Cleaning
 
 # COMMAND ----------
 
 from pyspark.sql.functions import col, dayofweek, date_format, round
 
-dailyActivityFormatted = dailyActivity\
-      .withColumn("TotalSteps", col("TotalSteps").cast("int"))
+dailyActivityFormatted = dailyActivity
 
 dailyActivityFormatted = dailyActivityFormatted\
-    .withColumn("day_of_week", dayofweek("ActivityDate"))
-
-dailyActivityFormatted = dailyActivityFormatted\
-    .withColumn("day_of_week", date_format(col("ActivityDate"), "E"))
-
-dailyActivityFormatted = dailyActivityFormatted\
+    .withColumn("TotalSteps", col("TotalSteps").cast("int"))\
+    .withColumn("WeekDay", dayofweek("ActivityDate"))\
+    .withColumn("WeekDay", date_format(col("ActivityDate"), "E"))\
     .withColumn("TotalDistance", round(col("TotalDistance"), 2))\
     .withColumn("TotalSteps", round(col("TotalSteps"), 2))\
-    .withColumn("Calories", round(col("Calories"), 2))
+    .withColumn("Calories", round(col("Calories"), 2))\
+    .withColumnRenamed('ActivityDate','Date')
 
-display(dailyActivityFormatted)
+#dailyActivityFormatted = dailyActivityFormatted.select('Id','Date','WeekDay','TotalSteps','TotalDistance','Calories')
 
-# COMMAND ----------
-
-#
-minuteMETs=minuteMETs.withColumnRenamed('Activity','Date')
-
-# COMMAND ----------
-
-#Modify data type of SleepDay
+#display(dailyActivityFormatted)
+dailyActivityFormatted.printSchema()
 
 # COMMAND ----------
 
-#Modify hourlyCalories_merged by splitting Time and date
+#Check for missing-values and duplicates
+
+from pyspark.sql.functions import count
+
+missing_count = dailyActivityFormatted.filter(dailyActivityFormatted["Id"].isNull()).count()
+print("Missing Count:", missing_count)
+
+grouped_df = dailyActivityFormatted.groupBy("Id", "Date", "TotalSteps").agg(count("*").alias("Count"))
+filtered_df = grouped_df.filter(grouped_df["Count"] > 1)
+result_df = filtered_df.select("Id", "Date", "TotalSteps", "Count")
+display(result_df)
 
 # COMMAND ----------
 
-#Modify hourlyIntensities_merged by splitting Time and date
+# MAGIC %md
+# MAGIC ##2.2) minuteMETs
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC MET (Metabolic Equivalent of Task) is a physiological measure expressing the energy cost of physical activities. 
+# MAGIC MET values are often used to estimate calorie expenditure during physical activities.
+
+# COMMAND ----------
+
+minuteMETsFormatted = minuteMETs
+
+minuteMETsFormatted=minuteMETsFormatted\
+  .withColumnRenamed('Activity','Date')\
+  .withColumnRenamed('Minute','Time')
+
+#display(minuteMETsFormatted)
+minuteMETsFormatted.printSchema()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##2.3) dailySleep
+
+# COMMAND ----------
+
+from pyspark.sql.functions import to_date, split
+from pyspark.sql.types import DateType
+import pandas as pd
+
+dailySleepFormatted = dailySleep
+
+dailySleepFormatted = dailySleepFormatted\
+    .withColumn("SleepDay", split(dailySleep.SleepDay, " ")[0])
+
+dailySleepFormatted = dailySleepFormatted\
+    .withColumn("SleepDay", to_date(dailySleepFormatted.SleepDay, "M/d/yyyy").cast(DateType()))
+
+dailySleepFormatted = dailySleepFormatted\
+    .withColumn("Weekday", dayofweek("SleepDay"))
+
+dailySleepFormatted = dailySleepFormatted\
+    .withColumn("Weekday", date_format(col("SleepDay"), "E"))
+
+display(dailySleepFormatted)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##2.4) Other 
+
+# COMMAND ----------
+
+#Modify hourlyCalories by splitting Time and date
+
+# COMMAND ----------
+
+#Modify hourlyIntensities by splitting Time and date
 
 # COMMAND ----------
 
@@ -193,25 +207,14 @@ display(users)
 
 # COMMAND ----------
 
-#Identify Missing Values 
-missing_count = dailyActivity.filter(dailyActivity["Id"].isNull()).count()
-print("Missing Count:", missing_count)
-
-# COMMAND ----------
-
-#Identifying for duplicates in DailyActivity
-
-# COMMAND ----------
-
 # MAGIC %md #3. Analyze
 
 # COMMAND ----------
 
-display(dailyActivityFormatted)
+# MAGIC %md
+# MAGIC Daily Average Analysis
 
 # COMMAND ----------
-
-#Daily Average Analysis
 
 from pyspark.sql.functions import avg, col
 
@@ -229,7 +232,6 @@ result = result\
     .withColumn("avg_calories", round(col("avg_calories"), 2))
 
 display(result)
-
 
 # COMMAND ----------
 
@@ -249,7 +251,6 @@ display(result)
 
 from pyspark.sql.functions import sum, col
 
-# Perform the equivalent Spark operation
 result = (
     dailyActivityFormatted
     .groupBy("Id")
@@ -278,7 +279,6 @@ display(hourlySteps)
 
 from pyspark.sql.functions import split, col, to_timestamp, date_format
 
-
 # Convert the string into a timestamp
 hourlyStepsFormatted = hourlySteps.withColumn("ActivityHour", to_timestamp("ActivityHour", "M/d/yyyy h:mm:ss a"))
 
@@ -301,7 +301,11 @@ display(hourlyStepsFormatted)
 
 # COMMAND ----------
 
-#Average Steps per Hour
+# MAGIC %md
+# MAGIC Average Steps per Hour
+
+# COMMAND ----------
+
 from pyspark.sql.functions import col, avg
 
 result = (
@@ -335,13 +339,13 @@ from pyspark.sql.functions import avg
 
 result3 = (
     dailyActivityFormatted
-    .groupBy("ActivityDate")
+    .groupBy("Date")
     .agg(
         avg("TotalSteps").alias("avg_steps"),
         avg("TotalDistance").alias("avg_distance"),
         avg("Calories").alias("avg_calories")
     )
-    .orderBy("ActivityDate")
+    .orderBy("Date")
 )
 
 display(result3)
@@ -349,7 +353,7 @@ display(result3)
 '''import matplotlib.pyplot as plt 
 import numpy as np 
 
-x = result3.select('ActivityDate')
+x = result3.select('Date')
 y1 = result3.select('avg_steps')
 y2 = result3.select('avg_distance')
 y3 = result3.select('avg_calories')
@@ -382,13 +386,12 @@ plt.show()'''
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Categorize users into different intensity levels
+# MAGIC ##Categorize users into different intensity levels
 
 # COMMAND ----------
 
 from pyspark.sql.functions import avg, col, when
 
-# Perform the equivalent Spark operation
 result = (
     minuteMETs
     .groupBy("Id")
@@ -432,7 +435,6 @@ display(result)
 # MAGIC %md 
 # MAGIC ##Intensity of Activities
 # MAGIC Exploring the distribution of METs to understand the range of activity intensities recorded by the devices.
-# MAGIC
 # MAGIC Identifying peak MET values and correlating them with specific activities or time periods.
 
 # COMMAND ----------
@@ -452,50 +454,22 @@ display(result)
 
 # MAGIC %md
 # MAGIC ##Sleep analysys
-
-# COMMAND ----------
-
-# MAGIC %md
 # MAGIC Analyzing the average total minutes asleep to understand the typical sleep duration.<br>
 # MAGIC Looking for trends or patterns in sleep data over time.
 
 # COMMAND ----------
 
-from pyspark.sql.functions import dayofweek, avg, col, date_format, to_date, lit
+from pyspark.sql.functions import avg
 
-#display(dailySleep)
-dailySleep.printSchema()
+dailySleepFormatted2 = dailySleepFormatted
 
-#TODO:check for duplicates
+# Drop unnecessary columns and calculate average TotalTimeInBed grouped by Weekday
+sleepmean = dailySleepFormatted2\
+    .drop("Id", "SleepDay", "TotalSleepRecords", "TotalTimeInBed")\
+    .groupBy("Weekday")\
+    .agg(round(avg("TotalMinutesAsleep")).alias("AvgSleepMinutes"))
 
-dailySleepFormatted = dailySleep.withColumn('SleepDay',split(dailySleep.SleepDay,' ')[0])
-
-dailySleepFormatted = dailySleepFormatted.withColumn('SleepDay', to_date(dailySleepFormatted['SleepDay']))
-
-#dailySleepFormatted = dailySleepFormatted.withColumn('SleepDay2', dailySleepFormatted['SleepDay'].dt.strftime('%Y-%m-%d'))
-#dailySleepFormatted = dailySleepFormatted.withColumn('SleepDay2', to_date(dailySleepFormatted['SleepDay'], 'dd-MM-yyyy'))
-
-#dailySleepFormatted = dailySleepFormatted.select("Id", "SleepDay", "SleepDay2")
-
-dailySleepFormatted.printSchema()
-display(dailySleepFormatted)
-
-#change from d/m/y to y/m/d
-#dailySleepFormatted = dailySleepFormatted\
-#    .withColumn("SleepDay", to_date("SleepDay", "d/m/yyyy"))\
-#    .withColumn("SleepDay", date_format("SleepDay", "yyyy/m/d"))
-
-#create day_of_week column
-#dailySleepFormatted = dailySleepFormatted\
-#    .withColumn("day_of_week", dayofweek("SleepDay"))\
-#    .withColumn("day_of_week", date_format(col("SleepDay"), "E"))
-
-#dailySleepFormatted = dailySleepFormatted.select("Id", "SleepDay", "TotalMinutesAsleep", "day_of_week")
-
-#display(dailySleepFormatted)
-
-#result = dailySleepFormatted.groupBy("day_of_week").agg(avg("TotalMinutesAsleep").alias("TotalMinutesAsleep"))
-#display(result)
+display(sleepmean)
 
 # COMMAND ----------
 
