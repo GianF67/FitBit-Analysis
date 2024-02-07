@@ -360,11 +360,14 @@ x = result3.Date
 y1 = result3.avg_steps
 y2 = result3.avg_distance
 y3 = result3.avg_calories
+
+#set size
+plt.figure(figsize=(15, 3))
+plt.tight_layout()
   
 graph1 = plt.plot(x, y1, label = "Steps")
 graph2 = plt.plot(x, y2, label = "Distance")
 graph3 = plt.plot(x, y3, label = "Calories")
-
 plt.xticks(rotation=90)
 ax = plt.gca()
 #set x tick density
@@ -372,6 +375,8 @@ ax.set_xticks( [* range(int(ax.get_xticks()[0])-1, int(ax.get_xticks()[-1]), int
 
 #set y tick density
 ax.set_yticks( [* range(int(ax.get_yticks()[0]), int(ax.get_yticks()[-1])+1, int( (ax.get_yticks()[-1] - ax.get_yticks()[0])/(len(ax.get_yticks())-1) / 2 )) ] )
+
+
 
 plt.legend() 
 plt.show()
