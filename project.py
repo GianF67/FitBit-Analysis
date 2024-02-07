@@ -684,3 +684,154 @@ q10 = q10.orderBy("Id","Date")
 q10 = q10.filter("Id == '1624580081'")
 
 display(q10)
+
+# COMMAND ----------
+
+from pyspark.sql import SparkSession
+df1 = dailyActivity.select("Id", "ActivityDate","Calories").\
+    withColumnRenamed("ActivityDate", "DayA").\
+    withColumnRenamed("Id", "IdA")
+#display(df1)
+df2 = dailyHeartrate.select("Id", "Day", "Mean_Value").\
+    withColumnRenamed("Mean_Value", "AvgHeartrate")
+#display(df2)
+
+q11 = df1.join(df2,(df1["DayA"]==df2["Day"]) & (df1["IdA"]==df2["Id"]), "inner").drop("DayA", "IdA")
+q11 = q11.select("Id", "Day", "Calories", "AvgHeartrate")
+display(q11)
+
+# COMMAND ----------
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+import random
+
+# Collect all distinct IDs
+distinct_ids = q11.select("Id").distinct().collect()
+
+selected_ids = []
+
+# Get random IDs for each P
+random.seed(12)
+for _ in range(4):
+    # Ensure the randomly selected ID is unique
+    while True:
+        random_id = random.choice(distinct_ids)[0]
+        if random_id not in selected_ids:
+            selected_ids.append(random_id)
+            break
+
+# Filter DataFrame to select data only where ID matches the randomly selected IDs
+P1 = q11.filter(col("Id") == selected_ids[0]).alias("P1")
+display(P1)
+
+P2 = q11.filter(col("Id") == selected_ids[1]).alias("P2")
+display(P2)
+
+P3 = q11.filter(col("Id") == selected_ids[2]).alias("P3")
+display(P3)
+
+P4 = q11.filter(col("Id") == selected_ids[3]).alias("P4")
+display(P4)
+
+# COMMAND ----------
+
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+
+x1 = P1.select('AvgHeartrate').toPandas()['AvgHeartrate']
+y1 = P1.select('Calories').toPandas()['Calories']
+
+x2 = P2.select('AvgHeartrate').toPandas()['AvgHeartrate']
+y2 = P2.select('Calories').toPandas()['Calories']
+
+x3 = P3.select('AvgHeartrate').toPandas()['AvgHeartrate']
+y3 = P3.select('Calories').toPandas()['Calories']
+
+x4 = P4.select('AvgHeartrate').toPandas()['AvgHeartrate']
+y4 = P4.select('Calories').toPandas()['Calories']
+
+fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 16))
+
+#set size
+#plt.figure(figsize=(15, 3))
+#plt.tight_layout()
+  
+# First subplot
+axs[0, 0].scatter(x1, y1, label="Person 1")
+axs[0, 0].set_ylabel('Calories')
+axs[0, 0].set_xlabel('Heartrate')
+axs[0, 0].legend()
+
+model1 = LinearRegression()
+model1.fit(x1.values.reshape(-1, 1), y1)
+
+# Predict y values using the model
+y_pred1 = model1.predict(x1.values.reshape(-1, 1))
+
+# Plot the line of best fit
+axs[0, 0].plot(x1, y_pred1, color='red', linewidth=2)
+
+# Second subplot
+axs[0, 1].scatter(x2, y2, label="Person 2")
+axs[0, 1].set_ylabel('Calories')
+axs[0, 1].set_xlabel('Heartrate')
+axs[0, 1].legend()
+
+model2 = LinearRegression()
+model2.fit(x2.values.reshape(-1, 1), y2)
+
+# Predict y values using the model
+y_pred2 = model2.predict(x2.values.reshape(-1, 1))
+
+# Plot the line of best fit
+axs[0, 1].plot(x2, y_pred2, color='red', linewidth=2)
+
+# Third subplot
+axs[1, 0].scatter(x3, y3, label="Person 3")
+axs[1, 0].set_ylabel('Calories')
+axs[1, 0].set_xlabel('Heartrate')
+axs[1, 0].legend()
+
+model3 = LinearRegression()
+model3.fit(x3.values.reshape(-1, 1), y3)
+
+# Predict y values using the model
+y_pred3 = model3.predict(x3.values.reshape(-1, 1))
+
+# Plot the line of best fit
+axs[1, 0].plot(x3, y_pred3, color='red', linewidth=2)
+
+# Fourth subplot
+axs[1, 1].scatter(x4, y4, label="Person 4")
+axs[1, 1].set_ylabel('Calories')
+axs[1, 1].set_xlabel('Heartrate')
+axs[1, 1].legend()
+
+model4 = LinearRegression()
+model4.fit(x4.values.reshape(-1, 1), y4)
+
+# Predict y values using the model
+y_pred4 = model4.predict(x4.values.reshape(-1, 1))
+
+# Plot the line of best fit
+axs[1, 1].plot(x4, y_pred4, color='red', linewidth=2)
+
+
+#plt.xticks(rotation=90)
+
+
+plt.legend() 
+plt.show()
+
+# COMMAND ----------
+
+P3_tmp = P3.join(dailyActivity, (P3["Id"]==dailyActivity["Id"]) & (P3["Day"]==dailyActivity["ActivityDate"]))
+#display(P3_tmp)
+P3_1 = P3_tmp.select(P3["Id"], "Day", "VeryActiveMinutes", "FairlyActiveMinutes", "LightlyActiveMinutes", "SedentaryMinutes", P3["Calories"])
+display(P3_1)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC While high heartrate during exercise has a positive correlation with calories burned in MOST individuals, we can see that there are outliers such as P3. They burned more calories during low intensity exercise.
