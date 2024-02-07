@@ -192,7 +192,36 @@ dailySleepFormatted = dailySleepFormatted.drop('TotalSleepRecords')
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##2.4) Other 
+# MAGIC ##2.4) hourlySteps
+
+# COMMAND ----------
+
+from pyspark.sql.functions import split, col, to_timestamp, date_format
+
+# Convert the string into a timestamp
+hourlyStepsFormatted = hourlySteps.withColumn("ActivityHour", to_timestamp("ActivityHour", "M/d/yyyy h:mm:ss a"))
+
+# Format the timestamp into the desired format
+hourlyStepsFormatted = hourlyStepsFormatted.withColumn("ActivityHour", date_format("ActivityHour", "M/d/yyyy HH:mm"))
+
+# Split the 'ActivityHour' column into two columns: 'Day' and 'Time'
+hourlyStepsFormatted = hourlyStepsFormatted.withColumn("Day", split(col("ActivityHour"), " ")[0])
+hourlyStepsFormatted = hourlyStepsFormatted.withColumn("Hour", split(col("ActivityHour"), " ")[1])
+
+# Drop the original 'ActivityHour' column
+hourlyStepsFormatted = hourlyStepsFormatted.drop("ActivityHour")
+
+hourlyStepsFormatted = hourlyStepsFormatted.withColumnRenamed('StepTotal','Steps')
+
+# Reorder the columns as per your requirement
+hourlyStepsFormatted = hourlyStepsFormatted.select("Id", "Day", "Hour", "Steps")
+
+#display(hourlyStepsFormatted)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##2.5) Other 
 
 # COMMAND ----------
 
@@ -211,16 +240,17 @@ users = dailyActivity.select("Id").distinct()
 
 # COMMAND ----------
 
-# MAGIC %md #3. Analyze
+# MAGIC %md #3) Analyze
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Daily Average Analysis
+# MAGIC ##3.1) Daily Average Analysis
 
 # COMMAND ----------
 
 from pyspark.sql.functions import avg, col
+import matplotlib.pyplot as plt
 
 q1 = (
     dailyActivityFormatted
@@ -230,12 +260,37 @@ q1 = (
          avg("Calories").alias("avg_calories"))
 )
 
+'''
 q1 = q1\
     .withColumn("avg_steps", round(col("avg_steps"), 2))\
     .withColumn("avg_distance", round(col("avg_distance"), 2))\
     .withColumn("avg_calories", round(col("avg_calories"), 2))
+'''
 
 display(q1)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Average Steps Per Day
+
+# COMMAND ----------
+
+q1Tmp = q1.toPandas()
+
+x = q1Tmp.WeekDay
+y1 = q1Tmp.avg_steps
+#y2 = q1Tmp.avg_distance
+#y3 = q1Tmp.avg_calories
+
+fig, ax = plt.subplots(figsize=(15, 5))
+
+ax.bar(x, y1)
+
+ax.set_xlabel('Days')
+ax.set_ylabel('Steps')
+
+plt.show()
 
 # COMMAND ----------
 
@@ -244,7 +299,12 @@ display(q1)
 
 # COMMAND ----------
 
-#make a chart
+#TODO: make a chart
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##3.2) Compare Different Metrics
 
 # COMMAND ----------
 
@@ -272,33 +332,16 @@ display(q2)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Average Steps Per Hours
+# MAGIC ##3.3) Activity Time and Calories Burned
 
 # COMMAND ----------
 
-#TODO: move to 'Process and Data Cleaning section'
+#TODO: add charts
 
-from pyspark.sql.functions import split, col, to_timestamp, date_format
+# COMMAND ----------
 
-# Convert the string into a timestamp
-hourlyStepsFormatted = hourlySteps.withColumn("ActivityHour", to_timestamp("ActivityHour", "M/d/yyyy h:mm:ss a"))
-
-# Format the timestamp into the desired format
-hourlyStepsFormatted = hourlyStepsFormatted.withColumn("ActivityHour", date_format("ActivityHour", "M/d/yyyy HH:mm"))
-
-# Split the 'ActivityHour' column into two columns: 'Day' and 'Time'
-hourlyStepsFormatted = hourlyStepsFormatted.withColumn("Day", split(col("ActivityHour"), " ")[0])
-hourlyStepsFormatted = hourlyStepsFormatted.withColumn("Hour", split(col("ActivityHour"), " ")[1])
-
-# Drop the original 'ActivityHour' column
-hourlyStepsFormatted = hourlyStepsFormatted.drop("ActivityHour")
-
-hourlyStepsFormatted = hourlyStepsFormatted.withColumnRenamed('StepTotal','Steps')
-
-# Reorder the columns as per your requirement
-hourlyStepsFormatted = hourlyStepsFormatted.select("Id", "Day", "Hour", "Steps")
-
-#display(hourlyStepsFormatted)
+# MAGIC %md
+# MAGIC ##3.4) Average Steps Per Hours
 
 # COMMAND ----------
 
@@ -311,9 +354,21 @@ q3 = (
     .orderBy("Hour")
 )
 
-display(q3)
+#display(q3)
 
-#TODO: make a chart
+q3Tmp = q3.toPandas()
+
+x = q3Tmp.Hour
+y = q3Tmp.avg_steps
+
+fig, ax = plt.subplots(figsize=(15, 5))
+
+ax.bar(x, y)
+
+ax.set_xlabel('Hours')
+ax.set_ylabel('Steps')
+
+plt.show()
 
 # COMMAND ----------
 
@@ -328,7 +383,7 @@ display(q3)
 
 # COMMAND ----------
 
-# MAGIC %md ##Metrics Comparison Over Time
+# MAGIC %md ##3.5) Metrics Comparison Over Time
 # MAGIC This query can help understand if there are consistent patterns or if certain metrics are more influential in different periods.
 
 # COMMAND ----------
@@ -394,7 +449,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##Categorize users into different intensity levels
+# MAGIC ##3.6) Categorize users into different intensity levels
 
 # COMMAND ----------
 
@@ -405,26 +460,43 @@ from pyspark.sql.functions import avg, col, when
 q5 = (
     minuteMETsFormatted
     .groupBy("Id")
-    .agg(avg("METs").alias("avg_METs"))
-    .withColumn("intensity_category",
-        when(col("avg_METs") <= 3, "LOW")
-        .when((col("avg_METs") > 3) & (col("avg_METs") <= 6), "MEDIUM")
-        .when(col("avg_METs") > 6, "HIGH")
-        .otherwise("Unknown")
+    .agg(avg("METs").alias("AvgMETs"))
+    .withColumn("AvgMETs", round(col("AvgMETs")))
+    .withColumn("IntensityLevel",
+        when(col("AvgMETs") <= 10, "Low")
+        .when((col("AvgMETs") > 10) & (col("AvgMETs") <= 16), "Medium")
+        .when(col("AvgMETs") > 16, "High")
+        .otherwise("n/d")
     )
-    .select("Id", "avg_METs", "intensity_category")
 )
 
-display(q5)
+#display(q5)
+
+import matplotlib.pyplot as plt
+import pandas as pd
+
+q5Tmp = q5\
+    .groupBy('IntensityLevel')\
+    .agg(sum("AvgMETs").alias("AvgMETs"),)
+
+q5Tmp = q5Tmp.toPandas()
+
+labels = q5Tmp['IntensityLevel']
+sizes = q5Tmp['AvgMETs']
+
+fig, ax = plt.subplots()
+ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+ax.axis('equal')  
+#plt.title('User Segments')
+
+plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC The output shows the average METs and the corresponding intensity category for each user.
 # MAGIC
-# MAGIC In this case, all users are categorized as "Vigorous Intensity" based on the provided threshold values.
-# MAGIC
-# MAGIC This indicates that the average METs for each user fall within the range associated with vigorous intensity activities.
+# MAGIC In this case, most users are categorized as "Medium" based on the provided threshold values.
 # MAGIC
 # MAGIC For users categorized under "Vigorous Intensity," Bellabeat could consider providing tailored recommendations and features to support and enhance their vigorous intensity activities.
 # MAGIC
@@ -440,13 +512,14 @@ display(q5)
 # COMMAND ----------
 
 # MAGIC %md 
-# MAGIC ##Intensity of Activities
+# MAGIC ##3.7) Intensity of Activities
 # MAGIC Exploring the distribution of METs to understand the range of activity intensities recorded by the devices.
 # MAGIC Identifying peak MET values and correlating them with specific activities or time periods.
 
 # COMMAND ----------
 
 from pyspark.sql.functions import col
+import matplotlib.pyplot as plt
 
 q6 = (
     minuteMETsFormatted
@@ -455,12 +528,14 @@ q6 = (
     .orderBy("METs")
 )
 
-display(q6)
+#display(q6)
+
+#TODO: add chart
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##Sleep analysys
+# MAGIC ##3.8) Sleep analysys
 # MAGIC Analyzing the average total minutes asleep to understand the typical sleep duration.<br>
 # MAGIC Looking for trends or patterns in sleep data over time.
 
@@ -476,9 +551,9 @@ sleepmean = dailySleepFormatted2\
     .groupBy("Weekday")\
     .agg(round(avg("TotalMinutesAsleep")).alias("AvgSleepMinutes"))
 
-display(sleepmean)
+#display(sleepmean)
 
-#TODO: use matplot to plot the chart
+#TODO: make a chart
 
 # COMMAND ----------
 
@@ -502,7 +577,7 @@ display(q7)
 
 # COMMAND ----------
 
-# MAGIC %md ##User classification by training status
+# MAGIC %md ##3.9) User classification
 # MAGIC Segmenting users based on their activity and sleep patterns. This can help identify different user groups with distinct behaviors.
 
 # COMMAND ----------
@@ -531,16 +606,7 @@ q8 = userSegments.withColumn("UserSegment",
 
 q8 = q8.select("Id", "AvgSteps", "AvgMinutesAsleep", "UserSegment")
 
-display(q8)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC - User segmentation involves categorizing users based on certain characteristics or behaviors. In this case, we want to segment users based on their activity and sleep patterns.
-# MAGIC - Less Active, Less Sleep: Users in this group have lower average steps, indicating a less active lifestyle.They also have a shorter average sleep duration (around 418 minutes).These users might benefit from interventions to increase physical activity and improve sleep habits.
-# MAGIC - Active, Less Sleep:Users in this group are more active, as evidenced by a higher average step count.However, they still have a relatively shorter average sleep duration (around 418 minutes).Strategies to maintain activity levels while improving sleep quality could be explored for this group.
-# MAGIC - Less Active, Good Sleep:This group has lower average steps but a longer and presumably better sleep duration (around 435 minutes).While these users are less active, they seem to prioritize and achieve better sleep.Understanding factors contributing to their good sleep could be valuable.
-# MAGIC - These insights provide a high-level understanding of user behavior, allowing for targeted interventions or personalized recommendations.
+#display(q8)
 
 # COMMAND ----------
 
@@ -587,28 +653,38 @@ plt.show()
 
 # COMMAND ----------
 
-#TODO: to fix => add data from the df
+# MAGIC %md
+# MAGIC - User segmentation involves categorizing users based on certain characteristics or behaviors. In this case, we want to segment users based on their activity and sleep patterns.
+# MAGIC - Less Active, Less Sleep: Users in this group have lower average steps, indicating a less active lifestyle.They also have a shorter average sleep duration (around 418 minutes).These users might benefit from interventions to increase physical activity and improve sleep habits.
+# MAGIC - Active, Less Sleep:Users in this group are more active, as evidenced by a higher average step count.However, they still have a relatively shorter average sleep duration (around 418 minutes).Strategies to maintain activity levels while improving sleep quality could be explored for this group.
+# MAGIC - Less Active, Good Sleep:This group has lower average steps but a longer and presumably better sleep duration (around 435 minutes).While these users are less active, they seem to prioritize and achieve better sleep.Understanding factors contributing to their good sleep could be valuable.
+# MAGIC - These insights provide a high-level understanding of user behavior, allowing for targeted interventions or personalized recommendations.
+
+# COMMAND ----------
 
 import matplotlib.pyplot as plt
+import pandas as pd
 
-# Prepare your data
-labels = ['Active, Less Sleep','Less Active, Good Sleep','Less Active, Less Sleep']
-sizes = [22, 3, 75]
+q8Tmp = q8\
+    .groupBy('UserSegment')\
+    .agg(sum("AvgMinutesAsleep").alias("AvgMinutesAsleep"),)
+
+q8Tmp = q8Tmp.toPandas()
+
+labels = q8Tmp['UserSegment']
+sizes = q8Tmp['AvgMinutesAsleep']
 
 fig, ax = plt.subplots()
-
 ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-
 ax.axis('equal')  
-
-plt.title('User Segments')
+#plt.title('User Segments')
 
 plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##Sleep and Calories Comparison
+# MAGIC ##3.10) Sleep and Calories Comparison
 
 # COMMAND ----------
 
@@ -667,7 +743,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##Average METs for single user
+# MAGIC ##3.11) Average METs for single user (?)
 
 # COMMAND ----------
 
@@ -687,16 +763,25 @@ display(q10)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ##3.12) Thomas analysys
+
+# COMMAND ----------
+
 from pyspark.sql import SparkSession
+
 df1 = dailyActivity.select("Id", "ActivityDate","Calories").\
     withColumnRenamed("ActivityDate", "DayA").\
     withColumnRenamed("Id", "IdA")
 #display(df1)
+
 df2 = dailyHeartrate.select("Id", "Day", "Mean_Value").\
     withColumnRenamed("Mean_Value", "AvgHeartrate")
 #display(df2)
 
-q11 = df1.join(df2,(df1["DayA"]==df2["Day"]) & (df1["IdA"]==df2["Id"]), "inner").drop("DayA", "IdA")
+q11 = df1.join(df2,(df1["DayA"]==df2["Day"]) & (df1["IdA"]==df2["Id"]), "inner")\
+    .drop("DayA", "IdA")
+
 q11 = q11.select("Id", "Day", "Calories", "AvgHeartrate")
 display(q11)
 
@@ -723,16 +808,16 @@ for _ in range(4):
 
 # Filter DataFrame to select data only where ID matches the randomly selected IDs
 P1 = q11.filter(col("Id") == selected_ids[0]).alias("P1")
-display(P1)
+#display(P1)
 
 P2 = q11.filter(col("Id") == selected_ids[1]).alias("P2")
-display(P2)
+#display(P2)
 
 P3 = q11.filter(col("Id") == selected_ids[2]).alias("P3")
-display(P3)
+#display(P3)
 
 P4 = q11.filter(col("Id") == selected_ids[3]).alias("P4")
-display(P4)
+#display(P4)
 
 # COMMAND ----------
 
@@ -817,9 +902,7 @@ y_pred4 = model4.predict(x4.values.reshape(-1, 1))
 # Plot the line of best fit
 axs[1, 1].plot(x4, y_pred4, color='red', linewidth=2)
 
-
 #plt.xticks(rotation=90)
-
 
 plt.legend() 
 plt.show()
@@ -835,3 +918,8 @@ display(P3_1)
 
 # MAGIC %md
 # MAGIC While high heartrate during exercise has a positive correlation with calories burned in MOST individuals, we can see that there are outliers such as P3. They burned more calories during low intensity exercise.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC #4) Conclusion
