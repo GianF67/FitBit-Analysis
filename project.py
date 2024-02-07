@@ -184,6 +184,8 @@ dailySleepFormatted = dailySleepFormatted\
 dailySleepFormatted = dailySleepFormatted\
     .withColumn("Weekday", date_format(col("SleepDay"), "E"))
 
+dailySleepFormatted = dailySleepFormatted.drop('TotalSleepRecords')
+
 display(dailySleepFormatted)
 
 # COMMAND ----------
@@ -480,6 +482,34 @@ sleepmean = dailySleepFormatted2\
 
 display(sleepmean)
 
+#TODO: use matplot to plot the chart
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Exploring day-to-day variability in both physical activity and sleep metrics. Identifying trends or unusual events that might impact users' routines.
+
+# COMMAND ----------
+
+#Sleep Trend Analysis
+'''
+SELECT SleepDay, TotalMinutesAsleep
+FROM DBO.dailyActivity_merged a
+JOIN DBO.sleepday_new s ON a.ActivityDate = s.SleepDay
+ORDER BY SleepDay
+'''
+
+from pyspark.sql import SparkSession
+
+joined_df = dailyActivityFormatted\
+    .join(dailySleepFormatted, dailyActivityFormatted["Date"] == dailySleepFormatted["SleepDay"], "inner")
+
+result_df = joined_df\
+    .select("SleepDay", "TotalMinutesAsleep")\
+    .orderBy("SleepDay")
+
+display(result_df)
+
 # COMMAND ----------
 
 # MAGIC %md ##User classification by training status
@@ -489,20 +519,70 @@ display(sleepmean)
 
 from pyspark.sql.functions import when, col, avg
 
-
-
-joined_df = dailyActivity.alias("A")\
-    .join(dailySleep.alias("S"), col("A.ActivityDate") == col("S.SleepDay"), "inner")
-
-display(joined_df)
+activityAndSleep = dailyActivityFormatted.alias('A')\
+    .join(dailySleepFormatted.alias('S'), col("A.Date") == col("S.SleepDay"), "inner")
 
 # Group by Id and calculate average TotalSteps and TotalMinutesAsleep
-user_segments = joined_df\
-    .groupBy("A.Id").agg(avg("TotalSteps").alias("AvgSteps"), avg("TotalMinutesAsleep").alias("AvgMinutesAsleep"))
+userSegments = activityAndSleep\
+    .groupBy("A.Id")\
+    .agg(avg("TotalSteps").alias("AvgSteps"), avg("TotalMinutesAsleep").alias("AvgMinutesAsleep"))\
+    #.withColumn("AvgSteps", round(col("AvgSteps"), 2))\
+    #.withColumn("AvgMinutesAsleep", round(col("AvgMinutesAsleep"), 2))
+
+#display(userSegments)
+
+# Apply the conditions using 'when' function and create a new column 'UserSegment'
+res = userSegments.withColumn("UserSegment",
+    when((col("AvgSteps") >= 10000) & (col("AvgMinutesAsleep") >= 420), 'Active Sleepers')
+    .when((col("AvgSteps") >= 10000) & (col("AvgMinutesAsleep") < 420),  'Active, Less Sleep')
+    .when((col("AvgSteps") < 10000)  & (col("AvgMinutesAsleep") >= 420), 'Less Active, Good Sleep')
+    .when((col("AvgSteps") < 10000)  & (col("AvgMinutesAsleep") < 420),  'Less Active, Less Sleep')
+    .otherwise("Other"))
+
+res = res.select("Id", "AvgSteps", "AvgMinutesAsleep", "UserSegment")
+
+display(res)
+
+# COMMAND ----------
+
+a = res.select('UserSegment').distinct()
+display(a)
+
+# COMMAND ----------
 
 
 
-#display(result_df)
+# COMMAND ----------
+
+import matplotlib.pyplot as plt
+
+# Prepare your data
+labels = res.select('UserSegment').distinct()
+sizes = [0, 22, 3, 75, 0]  # These are just sample values; you should replace them with your actual data
+
+# Create a figure and axis object
+fig, ax = plt.subplots()
+
+# Plot the pie chart
+ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+
+# Equal aspect ratio ensures that pie is drawn as a circle.
+ax.axis('equal')  
+
+# Add a title
+plt.title('User Segments')
+
+# Show the plot
+plt.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - User segmentation involves categorizing users based on certain characteristics or behaviors. In this case, we want to segment users based on their activity and sleep patterns.
+# MAGIC - Less Active, Less Sleep: Users in this group have lower average steps, indicating a less active lifestyle.They also have a shorter average sleep duration (around 418 minutes).These users might benefit from interventions to increase physical activity and improve sleep habits.
+# MAGIC - Active, Less Sleep:Users in this group are more active, as evidenced by a higher average step count.However, they still have a relatively shorter average sleep duration (around 418 minutes).Strategies to maintain activity levels while improving sleep quality could be explored for this group.
+# MAGIC - Less Active, Good Sleep:This group has lower average steps but a longer and presumably better sleep duration (around 435 minutes).While these users are less active, they seem to prioritize and achieve better sleep.Understanding factors contributing to their good sleep could be valuable.
+# MAGIC - These insights provide a high-level understanding of user behavior, allowing for targeted interventions or personalized recommendations.
 
 # COMMAND ----------
 
