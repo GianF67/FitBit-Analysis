@@ -222,7 +222,7 @@ from pyspark.sql.functions import avg, col
 
 result = (
     dailyActivityFormatted
-    .groupBy("day_of_week")
+    .groupBy("WeekDay")
     .agg(avg("TotalSteps").alias("avg_steps"),
          avg("TotalDistance").alias("avg_distance"),
          avg("Calories").alias("avg_calories"))
@@ -547,6 +547,47 @@ res = userSegments.withColumn("UserSegment",
 res = res.select("Id", "AvgSteps", "AvgMinutesAsleep", "UserSegment")
 
 display(res)
+
+# COMMAND ----------
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+#res = res.toPandas()
+# Map unique IDs to consecutive numbers
+id_mapping = {id_: i+1 for i, id_ in enumerate(res['Id'].unique())}
+
+# Map IDs to consecutive numbers
+res['Id_Consecutive'] = res['Id'].map(id_mapping)
+
+y = res.AvgSteps
+x = res.Id_Consecutive
+z = res.AvgMinutesAsleep
+
+fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(12, 8))
+
+#set size
+#plt.figure(figsize=(15, 3))
+#plt.tight_layout()
+  
+# First subplot (index 0)
+axs[0].bar(x, y)
+axs[0].set_ylabel('Steps')
+axs[0].set_xlabel('Id')
+axs[0].legend()
+
+# Second subplot (index 1)
+axs[1].scatter(x, z, label="Sleep")
+axs[1].set_ylabel('Minutes Asleep')
+axs[1].set_xlabel('Id')
+axs[1].legend()
+
+#plt.xticks(rotation=90)
+plt.ylabel('sleep')
+plt.xlabel('Id')
+
+plt.legend() 
+plt.show()
 
 # COMMAND ----------
 
