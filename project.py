@@ -341,29 +341,38 @@ result3 = (
     dailyActivityFormatted
     .groupBy("Date")
     .agg(
-        avg("TotalSteps").alias("avg_steps"),
-        avg("TotalDistance").alias("avg_distance"),
-        avg("Calories").alias("avg_calories")
+        round(avg("TotalSteps")).alias("avg_steps"),
+        round(avg("TotalDistance")*1000).alias("avg_distance"),
+        round(avg("Calories")).alias("avg_calories")
     )
     .orderBy("Date")
+    .toPandas()
 )
 
-display(result3)
+#display(result3)
 
-'''import matplotlib.pyplot as plt 
-import numpy as np 
+import matplotlib.pyplot as plt
+import numpy as np
 
-x = result3.select('Date')
-y1 = result3.select('avg_steps')
-y2 = result3.select('avg_distance')
-y3 = result3.select('avg_calories')
+x = result3.Date
+y1 = result3.avg_steps
+y2 = result3.avg_distance
+y3 = result3.avg_calories
   
-graph1 = plt.plot(x, y1, label = "Steps") 
-graph2 = plt.plot(x, y2, label = "Distance") 
-graph3 = plt.plot(x, y3, label = "Calories") 
+graph1 = plt.plot(x, y1, label = "Steps")
+graph2 = plt.plot(x, y2, label = "Distance")
+graph3 = plt.plot(x, y3, label = "Calories")
+
+plt.xticks(rotation=90)
+ax = plt.gca()
+#set x tick density
+ax.set_xticks( [* range(int(ax.get_xticks()[0])-1, int(ax.get_xticks()[-1]), int( (ax.get_xticks()[-1] - ax.get_xticks()[0])/(len(ax.get_xticks())-1) / 3 )) ] )
+
+#set y tick density
+ax.set_yticks( [* range(int(ax.get_yticks()[0]), int(ax.get_yticks()[-1])+1, int( (ax.get_yticks()[-1] - ax.get_yticks()[0])/(len(ax.get_yticks())-1) / 2 )) ] )
 
 plt.legend() 
-plt.show()'''
+plt.show()
 
 # COMMAND ----------
 
