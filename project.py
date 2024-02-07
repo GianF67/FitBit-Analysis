@@ -131,10 +131,15 @@ dailySleepFormatted1 = dailySleep.withColumn("SleepDay", split(dailySleep.SleepD
 dailySleepFormatted2 = dailySleepFormatted1.withColumn("SleepDay", to_date(dailySleepFormatted1.SleepDay, "M/d/yyyy").cast(DateType()))
 
 # Displaying the modified DataFrame
-display(dailySleepFormatted2)
+dailySleepFormatted3 = dailySleepFormatted2.withColumn("Weekday", dayofweek("SleepDay"))
+dailySleepFormatted3 = dailySleepFormatted2.withColumn("Weekday", date_format(col("SleepDay"), "E"))
+
+display(dailySleepFormatted3)
 
 
-    
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 
