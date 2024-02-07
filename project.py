@@ -6,6 +6,7 @@
 #the following code will delete all yours DBFS 
 #display(dbutils.fs.ls("/FileStore"))
 #dbutils.fs.rm("/FileStore/tables", recurse=True)
+aaa
 
 # COMMAND ----------
 
