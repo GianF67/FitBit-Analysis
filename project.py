@@ -105,6 +105,11 @@ hourlySteps = spark.read \
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ##2.1) dailyActivity
+
+# COMMAND ----------
+
 from pyspark.sql.functions import col, dayofweek, date_format, round
 
 dailyActivityFormatted = dailyActivity
@@ -113,15 +118,14 @@ dailyActivityFormatted = dailyActivityFormatted\
     .withColumn("TotalSteps", col("TotalSteps").cast("int"))\
     .withColumn("WeekDay", dayofweek("ActivityDate"))\
     .withColumn("WeekDay", date_format(col("ActivityDate"), "E"))\
-    .withColumn("TotalDistance", round(col("TotalDistance"), 2))\
-    .withColumn("TotalSteps", round(col("TotalSteps"), 2))\
-    .withColumn("Calories", round(col("Calories"), 2))\
     .withColumnRenamed('ActivityDate','Date')
+    #.withColumn("TotalDistance", round(col("TotalDistance"), 2))\
+    #.withColumn("TotalSteps", round(col("TotalSteps"), 2))\
+    #.withColumn("Calories", round(col("Calories"), 2))\
 
 #dailyActivityFormatted = dailyActivityFormatted.select('Id','Date','WeekDay','TotalSteps','TotalDistance','Calories')
 
 #display(dailyActivityFormatted)
-dailyActivityFormatted.printSchema()
 
 # COMMAND ----------
 
@@ -135,16 +139,13 @@ print("Missing Count:", missing_count)
 grouped_df = dailyActivityFormatted.groupBy("Id", "Date", "TotalSteps").agg(count("*").alias("Count"))
 filtered_df = grouped_df.filter(grouped_df["Count"] > 1)
 result_df = filtered_df.select("Id", "Date", "TotalSteps", "Count")
-display(result_df)
+
+#display(result_df)
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ##2.2) minuteMETs
-
-# COMMAND ----------
-
-# MAGIC %md
 # MAGIC MET (Metabolic Equivalent of Task) is a physiological measure expressing the energy cost of physical activities. 
 # MAGIC MET values are often used to estimate calorie expenditure during physical activities.
 
@@ -157,7 +158,7 @@ minuteMETsFormatted=minuteMETsFormatted\
   .withColumnRenamed('Minute','Time')
 
 #display(minuteMETsFormatted)
-minuteMETsFormatted.printSchema()
+#minuteMETsFormatted.printSchema()
 
 # COMMAND ----------
 
@@ -186,7 +187,7 @@ dailySleepFormatted = dailySleepFormatted\
 
 dailySleepFormatted = dailySleepFormatted.drop('TotalSleepRecords')
 
-display(dailySleepFormatted)
+#display(dailySleepFormatted)
 
 # COMMAND ----------
 
@@ -204,8 +205,9 @@ display(dailySleepFormatted)
 # COMMAND ----------
 
 #Number of Users
+
 users = dailyActivity.select("Id").distinct()
-display(users)
+#display(users)
 
 # COMMAND ----------
 
@@ -220,7 +222,7 @@ display(users)
 
 from pyspark.sql.functions import avg, col
 
-result = (
+q1 = (
     dailyActivityFormatted
     .groupBy("WeekDay")
     .agg(avg("TotalSteps").alias("avg_steps"),
@@ -228,12 +230,12 @@ result = (
          avg("Calories").alias("avg_calories"))
 )
 
-result = result\
+q1 = q1\
     .withColumn("avg_steps", round(col("avg_steps"), 2))\
     .withColumn("avg_distance", round(col("avg_distance"), 2))\
     .withColumn("avg_calories", round(col("avg_calories"), 2))
 
-display(result)
+display(q1)
 
 # COMMAND ----------
 
@@ -253,7 +255,7 @@ display(result)
 
 from pyspark.sql.functions import sum, col
 
-result = (
+q2 = (
     dailyActivityFormatted
     .groupBy("Id")
     .agg(
@@ -265,7 +267,7 @@ result = (
     )
 )
 
-display(result)
+display(q2)
 
 # COMMAND ----------
 
@@ -274,10 +276,7 @@ display(result)
 
 # COMMAND ----------
 
-display(hourlySteps)
-#hourlySteps.printSchema()
-
-# COMMAND ----------
+#TODO: move to 'Process and Data Cleaning section'
 
 from pyspark.sql.functions import split, col, to_timestamp, date_format
 
@@ -299,25 +298,22 @@ hourlyStepsFormatted = hourlyStepsFormatted.withColumnRenamed('StepTotal','Steps
 # Reorder the columns as per your requirement
 hourlyStepsFormatted = hourlyStepsFormatted.select("Id", "Day", "Hour", "Steps")
 
-display(hourlyStepsFormatted)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Average Steps per Hour
+#display(hourlyStepsFormatted)
 
 # COMMAND ----------
 
 from pyspark.sql.functions import col, avg
 
-result = (
+q3 = (
     hourlyStepsFormatted
     .groupBy("Hour")
     .agg(avg(col("Steps")).alias("avg_steps"))
     .orderBy("Hour")
 )
 
-display(result)
+display(q3)
+
+#TODO: make a chart
 
 # COMMAND ----------
 
@@ -338,8 +334,10 @@ display(result)
 # COMMAND ----------
 
 from pyspark.sql.functions import avg
+import matplotlib.pyplot as plt
+import numpy as np
 
-result3 = (
+q4 = (
     dailyActivityFormatted
     .groupBy("Date")
     .agg(
@@ -351,15 +349,10 @@ result3 = (
     .toPandas()
 )
 
-#display(result3)
-
-import matplotlib.pyplot as plt
-import numpy as np
-
-x = result3.Date
-y1 = result3.avg_steps
-y2 = result3.avg_distance
-y3 = result3.avg_calories
+x = q4.Date
+y1 = q4.avg_steps
+y2 = q4.avg_distance
+y3 = q4.avg_calories
 
 #set size
 plt.figure(figsize=(15, 3))
@@ -370,13 +363,12 @@ graph2 = plt.plot(x, y2, label = "Distance")
 graph3 = plt.plot(x, y3, label = "Calories")
 plt.xticks(rotation=90)
 ax = plt.gca()
+
 #set x tick density
 ax.set_xticks( [* range(int(ax.get_xticks()[0])-1, int(ax.get_xticks()[-1]), int( (ax.get_xticks()[-1] - ax.get_xticks()[0])/(len(ax.get_xticks())-1) / 3 )) ] )
 
 #set y tick density
 ax.set_yticks( [* range(int(ax.get_yticks()[0]), int(ax.get_yticks()[-1])+1, int( (ax.get_yticks()[-1] - ax.get_yticks()[0])/(len(ax.get_yticks())-1) / 2 )) ] )
-
-
 
 plt.legend() 
 plt.show()
@@ -406,16 +398,15 @@ plt.show()
 
 # COMMAND ----------
 
+#TODO: to fix it ==> all intensities are HIGH
+
 from pyspark.sql.functions import avg, col, when
 
-result = (
-    minuteMETs
+q5 = (
+    minuteMETsFormatted
     .groupBy("Id")
-    .agg(
-        avg("METs").alias("avg_METs")
-    )
-    .withColumn(
-        "intensity_category",
+    .agg(avg("METs").alias("avg_METs"))
+    .withColumn("intensity_category",
         when(col("avg_METs") <= 3, "LOW")
         .when((col("avg_METs") > 3) & (col("avg_METs") <= 6), "MEDIUM")
         .when(col("avg_METs") > 6, "HIGH")
@@ -424,7 +415,7 @@ result = (
     .select("Id", "avg_METs", "intensity_category")
 )
 
-display(result)
+display(q5)
 
 # COMMAND ----------
 
@@ -457,14 +448,14 @@ display(result)
 
 from pyspark.sql.functions import col
 
-result = (
-    minuteMETs
+q6 = (
+    minuteMETsFormatted
     .groupBy("METs")
     .count()
     .orderBy("METs")
 )
 
-display(result)
+display(q6)
 
 # COMMAND ----------
 
@@ -497,23 +488,17 @@ display(sleepmean)
 # COMMAND ----------
 
 #Sleep Trend Analysis
-'''
-SELECT SleepDay, TotalMinutesAsleep
-FROM DBO.dailyActivity_merged a
-JOIN DBO.sleepday_new s ON a.ActivityDate = s.SleepDay
-ORDER BY SleepDay
-'''
 
 from pyspark.sql import SparkSession
 
 joined_df = dailyActivityFormatted\
     .join(dailySleepFormatted, dailyActivityFormatted["Date"] == dailySleepFormatted["SleepDay"], "inner")
 
-result_df = joined_df\
+q7 = joined_df\
     .select("SleepDay", "TotalMinutesAsleep")\
     .orderBy("SleepDay")
 
-display(result_df)
+display(q7)
 
 # COMMAND ----------
 
@@ -537,32 +522,43 @@ userSegments = activityAndSleep\
 #display(userSegments)
 
 # Apply the conditions using 'when' function and create a new column 'UserSegment'
-res = userSegments.withColumn("UserSegment",
+q8 = userSegments.withColumn("UserSegment",
     when((col("AvgSteps") >= 10000) & (col("AvgMinutesAsleep") >= 420), 'Active Sleepers')
     .when((col("AvgSteps") >= 10000) & (col("AvgMinutesAsleep") < 420),  'Active, Less Sleep')
     .when((col("AvgSteps") < 10000)  & (col("AvgMinutesAsleep") >= 420), 'Less Active, Good Sleep')
     .when((col("AvgSteps") < 10000)  & (col("AvgMinutesAsleep") < 420),  'Less Active, Less Sleep')
     .otherwise("Other"))
 
-res = res.select("Id", "AvgSteps", "AvgMinutesAsleep", "UserSegment")
+q8 = q8.select("Id", "AvgSteps", "AvgMinutesAsleep", "UserSegment")
 
-display(res)
+display(q8)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - User segmentation involves categorizing users based on certain characteristics or behaviors. In this case, we want to segment users based on their activity and sleep patterns.
+# MAGIC - Less Active, Less Sleep: Users in this group have lower average steps, indicating a less active lifestyle.They also have a shorter average sleep duration (around 418 minutes).These users might benefit from interventions to increase physical activity and improve sleep habits.
+# MAGIC - Active, Less Sleep:Users in this group are more active, as evidenced by a higher average step count.However, they still have a relatively shorter average sleep duration (around 418 minutes).Strategies to maintain activity levels while improving sleep quality could be explored for this group.
+# MAGIC - Less Active, Good Sleep:This group has lower average steps but a longer and presumably better sleep duration (around 435 minutes).While these users are less active, they seem to prioritize and achieve better sleep.Understanding factors contributing to their good sleep could be valuable.
+# MAGIC - These insights provide a high-level understanding of user behavior, allowing for targeted interventions or personalized recommendations.
 
 # COMMAND ----------
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-#res = res.toPandas()
+
+q8Tmp = q8.toPandas()
+
 # Map unique IDs to consecutive numbers
-id_mapping = {id_: i+1 for i, id_ in enumerate(res['Id'].unique())}
+id_mapping = {id_: i+1 for i, id_ in enumerate(q8Tmp['Id'].unique())}
 
 # Map IDs to consecutive numbers
-res['Id_Consecutive'] = res['Id'].map(id_mapping)
+q8Tmp['Id_Consecutive'] = q8Tmp['Id'].map(id_mapping)
 
-y = res.AvgSteps
-x = res.Id_Consecutive
-z = res.AvgMinutesAsleep
+y = q8Tmp.AvgSteps
+x = q8Tmp.Id_Consecutive
+z = q8Tmp.AvgMinutesAsleep
 
 fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(12, 8))
 
@@ -591,44 +587,82 @@ plt.show()
 
 # COMMAND ----------
 
-a = res.select('UserSegment').distinct()
-display(a)
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
+#TODO: to fix => add data from the df
 
 import matplotlib.pyplot as plt
 
 # Prepare your data
-labels = res.select('UserSegment').distinct()
-sizes = [0, 22, 3, 75, 0]  # These are just sample values; you should replace them with your actual data
+labels = ['Active, Less Sleep','Less Active, Good Sleep','Less Active, Less Sleep']
+sizes = [22, 3, 75]
 
-# Create a figure and axis object
 fig, ax = plt.subplots()
 
-# Plot the pie chart
 ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
 
-# Equal aspect ratio ensures that pie is drawn as a circle.
 ax.axis('equal')  
 
-# Add a title
 plt.title('User Segments')
 
-# Show the plot
 plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC - User segmentation involves categorizing users based on certain characteristics or behaviors. In this case, we want to segment users based on their activity and sleep patterns.
-# MAGIC - Less Active, Less Sleep: Users in this group have lower average steps, indicating a less active lifestyle.They also have a shorter average sleep duration (around 418 minutes).These users might benefit from interventions to increase physical activity and improve sleep habits.
-# MAGIC - Active, Less Sleep:Users in this group are more active, as evidenced by a higher average step count.However, they still have a relatively shorter average sleep duration (around 418 minutes).Strategies to maintain activity levels while improving sleep quality could be explored for this group.
-# MAGIC - Less Active, Good Sleep:This group has lower average steps but a longer and presumably better sleep duration (around 435 minutes).While these users are less active, they seem to prioritize and achieve better sleep.Understanding factors contributing to their good sleep could be valuable.
-# MAGIC - These insights provide a high-level understanding of user behavior, allowing for targeted interventions or personalized recommendations.
+# MAGIC ##Sleep and Calories Comparison
+
+# COMMAND ----------
+
+from pyspark.sql.functions import sum
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+
+joined_df = dailyActivityFormatted.alias('A') \
+  .join(dailySleepFormatted.alias('S'), (col('A.Id') == col('S.Id')) & (col('A.Date') == col('S.SleepDay')), 'inner')
+
+q9 = joined_df\
+    .groupBy("A.Id")\
+    .agg(
+      sum("TotalMinutesAsleep").alias("TotalMinutesAsleep"),
+      sum("TotalTimeInBed").alias("TotalTimeInBed"),
+      sum("Calories").alias("Calories")
+    )
+
+#display(q9)
+
+q9Tmp = q9.toPandas()
+
+x = q9Tmp.Calories
+y = q9Tmp.TotalMinutesAsleep
+
+# Fit a linear regression model
+model = LinearRegression()
+model.fit(x.values.reshape(-1, 1), y)
+
+# Predict y values using the model
+y_pred = model.predict(x.values.reshape(-1, 1))
+
+#set size
+plt.figure(figsize=(15, 3))
+plt.tight_layout()
+
+# Plot the scatterplot
+plt.scatter(x, y, color='blue', alpha=0.5)
+
+# Plot the line of best fit
+plt.plot(x, y_pred, color='red', linewidth=2, label='Regression')
+
+plt.title('TotalMinutesAsleep vs Calories')
+plt.xlabel('Calories')
+plt.ylabel('Total Minutes Asleep')
+plt.grid(True)
+plt.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - The average sleep duration varies, indicating diverse sleep patterns among users.
+# MAGIC - Users with higher activity levels or longer awake periods may tend to burn more calories.
+# MAGIC - Some users have longer sleep durations but spend less time in bed, while others may have shorter sleep durations with more time in bed
 
 # COMMAND ----------
 
@@ -642,10 +676,11 @@ plt.show()
 
 from pyspark.sql.functions import col, avg
 
-minuteMETs = minuteMETs.drop("Minute")
-grouped_df = minuteMETs.groupBy("Id","Date")
-result = grouped_df.agg(avg(col("METs")).alias("avg_METs"))
-result = result.orderBy("Id","Date")
-result = result.filter("Id == '1624580081'")
+minuteMETs = minuteMETsFormatted.drop("Minute")
+grouped_df = minuteMETsFormatted.groupBy("Id","Date")
 
-display(result)
+q10 = grouped_df.agg(avg(col("METs")).alias("avg_METs"))
+q10 = q10.orderBy("Id","Date")
+q10 = q10.filter("Id == '1624580081'")
+
+display(q10)
