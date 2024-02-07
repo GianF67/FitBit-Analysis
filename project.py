@@ -22,8 +22,7 @@
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC 1) Import datasets
+# MAGIC %md #1. Import datasets
 
 # COMMAND ----------
 
@@ -94,6 +93,20 @@ hourlySteps = spark.read \
 
 # COMMAND ----------
 
+#df = dailyHeartrate
+#df = dailyActivity
+#df = dailyCalories
+#df = dailyIntensities
+#df = dailySteps
+df = dailySleep
+#df = weightLogInfo
+#df = minuteMETs
+
+#df.printSchema()
+display(df)
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC Questions:
 # MAGIC - What are some trends in smart device usage?
@@ -102,34 +115,14 @@ hourlySteps = spark.read \
 
 # COMMAND ----------
 
-#df = dailyHeartrate
-#df = dailyActivity
-#df = dailyCalories
-#df = dailyIntensities
-#df = dailySteps
-#df = dailySleep
-#df = weightLogInfo
-df = minuteMETs
-
-#df.printSchema()
-
-display(df)
-
-#cnt = df.count()
-#display(cnt)
-
-# COMMAND ----------
-
-# MAGIC %md 
-# MAGIC 2. Process and Data Cleaning
+# MAGIC %md #2. Process and Data Cleaning
 
 # COMMAND ----------
 
 from pyspark.sql.functions import col, dayofweek, date_format, round
 
-dailyActivityFormatted = dailyActivity.withColumn("TotalSteps", col("TotalSteps").cast("int"))
-
-#dailyActivityFormatted.printSchema()
+dailyActivityFormatted = dailyActivity\
+      .withColumn("TotalSteps", col("TotalSteps").cast("int"))
 
 dailyActivityFormatted = dailyActivityFormatted\
     .withColumn("day_of_week", dayofweek("ActivityDate"))
@@ -142,9 +135,12 @@ dailyActivityFormatted = dailyActivityFormatted\
     .withColumn("TotalSteps", round(col("TotalSteps"), 2))\
     .withColumn("Calories", round(col("Calories"), 2))
 
-minuteMETs=minuteMETs.withColumnRenamed('Activity','Date')
+display(dailyActivityFormatted)
 
-#display(dailyActivityFormatted)
+# COMMAND ----------
+
+#
+minuteMETs=minuteMETs.withColumnRenamed('Activity','Date')
 
 # COMMAND ----------
 
@@ -176,8 +172,7 @@ print("Missing Count:", missing_count)
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC 3. Analyze
+# MAGIC %md #3. Analyze
 
 # COMMAND ----------
 
@@ -300,8 +295,7 @@ display(result)
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC <h3>Metrics Comparison Over Time</h3><br>
+# MAGIC %md ##Metrics Comparison Over Time
 # MAGIC This query can help understand if there are consistent patterns or if certain metrics are more influential in different periods.
 
 # COMMAND ----------
@@ -329,10 +323,9 @@ y1 = result3.select('avg_steps')
 y2 = result3.select('avg_distance')
 y3 = result3.select('avg_calories')
   
-# plot lines 
 graph1 = plt.plot(x, y1, label = "Steps") 
-#graph2 = plt.plot(x, y2, label = "Distance") 
-#graph3 = plt.plot(x, y3, label = "Calories") 
+graph2 = plt.plot(x, y2, label = "Distance") 
+graph3 = plt.plot(x, y3, label = "Calories") 
 
 plt.legend() 
 plt.show()
@@ -340,21 +333,20 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC minuteMETsNarrow_merged appears to contain information about METs (Metabolic Equivalents of Task) for different activity minutes.
+# MAGIC - minuteMETs appears to contain information about METs (Metabolic Equivalents of Task) for different activity minutes.
 # MAGIC
-# MAGIC This table could be useful for exploring the intensity of physical activities undertaken by users and correlate it with other metrics like steps, distance, or calories burned.
+# MAGIC   This table could be useful for exploring the intensity of physical activities undertaken by users and correlate it with other metrics like steps, distance, or calories burned.
 # MAGIC
-# MAGIC METs are a measure of the energy expenditure of physical activities.
+# MAGIC   - METs are a measure of the energy expenditure of physical activities.
 # MAGIC
-# MAGIC One MET is defined as the energy expenditure at rest, which is equivalent to sitting quietly.
+# MAGIC   - One MET is defined as the energy expenditure at rest, which is equivalent to sitting quietly.
 # MAGIC
-# MAGIC In the context of health and fitness tracking, METs are valuable because they provide a standardized way to measure and compare the intensity of different physical activities. Understanding METs allows to categorize activities based on their energy expenditure.
+# MAGIC   - In the context of health and fitness tracking, METs are valuable because they provide a standardized way to measure and compare the intensity of different physical activities. Understanding METs allows to categorize activities based on their energy expenditure.
 # MAGIC
-# MAGIC Here's how METs are generally categorized:
-# MAGIC
-# MAGIC Low Intensity (1-3 METs): Activities such as sitting, standing, or casual walking.
-# MAGIC Moderate Intensity (3-6 METs): Activities like brisk walking, cycling at a moderate pace, or light housework.
-# MAGIC Vigorous Intensity (6+ METs): Activities that significantly raise your heart rate and breathing, such as running, cycling at a high speed, or intense exercise.
+# MAGIC - Here's how METs are generally categorized:
+# MAGIC   - Low Intensity (1-3 METs): Activities such as sitting, standing, or casual walking.
+# MAGIC   - Moderate Intensity (3-6 METs): Activities like brisk walking, cycling at a moderate pace, or light housework.
+# MAGIC   - Vigorous Intensity (6+ METs): Activities that significantly raise your heart rate and breathing, such as running, cycling at a high speed, or intense exercise.
 
 # COMMAND ----------
 
@@ -374,9 +366,9 @@ result = (
     )
     .withColumn(
         "intensity_category",
-        when(col("avg_METs") <= 3, "Low Intensity")
-        .when((col("avg_METs") > 3) & (col("avg_METs") <= 6), "Moderate Intensity")
-        .when(col("avg_METs") > 6, "Vigorous Intensity")
+        when(col("avg_METs") <= 3, "LOW")
+        .when((col("avg_METs") > 3) & (col("avg_METs") <= 6), "MEDIUM")
+        .when(col("avg_METs") > 6, "HIGH")
         .otherwise("Unknown")
     )
     .select("Id", "avg_METs", "intensity_category")
@@ -386,23 +378,134 @@ display(result)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC The output shows the average METs and the corresponding intensity category for each user.
+# MAGIC
+# MAGIC In this case, all users are categorized as "Vigorous Intensity" based on the provided threshold values.
+# MAGIC
+# MAGIC This indicates that the average METs for each user fall within the range associated with vigorous intensity activities.
+# MAGIC
+# MAGIC For users categorized under "Vigorous Intensity," Bellabeat could consider providing tailored recommendations and features to support and enhance their vigorous intensity activities.
+# MAGIC
+# MAGIC Users can be offered:
+# MAGIC - Specialized Workouts: Offer workout programs or sessions specifically designed for vigorous intensity exercises. This could include high-intensity interval training (HIIT) routines, advanced cardio workouts, and strength training programs.
+# MAGIC - Performance Tracking: Enhance the app's tracking capabilities for vigorous activities. Provide detailed insights into users' performance during high-intensity exercises.
+# MAGIC - Motivational Content: Create motivational content and challenges targeted at users engaging in vigorous activities.
+# MAGIC - Community Engagement: Foster a sense of community among users with similar activity levels. This could include forums, groups, or challenges specifically for those engaging in vigorous intensity workouts, allowing users to share experiences and tips.
+# MAGIC - Health and Safety Tips: Offer health and safety tips related to vigorous exercise. Provide information on proper warm-ups, cool-downs, hydration, and recovery strategies to ensure users stay safe and maximize the benefits of their workouts.
+# MAGIC - Integration with Wearables: If users are using Bellabeat's smart wellness products during vigorous activities, ensure seamless integration with wearables to capture accurate and real-time data. This can enhance the overall user experience.
+# MAGIC - Personalized Recommendations: Leverage the collected data to provide personalized recommendations for users engaging in vigorous intensity activities. This could include suggested workout routines, recovery strategies, and nutritional guidance tailored to individual preferences and goals.
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC ##Intensity of Activities
+# MAGIC Exploring the distribution of METs to understand the range of activity intensities recorded by the devices.
+# MAGIC
+# MAGIC Identifying peak MET values and correlating them with specific activities or time periods.
+
+# COMMAND ----------
+
+from pyspark.sql.functions import col
+
+result = (
+    minuteMETs
+    .groupBy("METs")
+    .count()
+    .orderBy("METs")
+)
+
+display(result)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##Sleep analysys
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Analyzing the average total minutes asleep to understand the typical sleep duration.<br>
+# MAGIC Looking for trends or patterns in sleep data over time.
+
+# COMMAND ----------
+
+from pyspark.sql.functions import dayofweek, avg, col, date_format, to_date, lit
+
+#display(dailySleep)
+dailySleep.printSchema()
+
+#TODO:check for duplicates
+
+dailySleepFormatted = dailySleep.withColumn('SleepDay',split(dailySleep.SleepDay,' ')[0])
+
+dailySleepFormatted = dailySleepFormatted.withColumn('SleepDay', to_date(dailySleepFormatted['SleepDay']))
+
+#dailySleepFormatted = dailySleepFormatted.withColumn('SleepDay2', dailySleepFormatted['SleepDay'].dt.strftime('%Y-%m-%d'))
+#dailySleepFormatted = dailySleepFormatted.withColumn('SleepDay2', to_date(dailySleepFormatted['SleepDay'], 'dd-MM-yyyy'))
+
+#dailySleepFormatted = dailySleepFormatted.select("Id", "SleepDay", "SleepDay2")
+
+dailySleepFormatted.printSchema()
+display(dailySleepFormatted)
+
+#change from d/m/y to y/m/d
+#dailySleepFormatted = dailySleepFormatted\
+#    .withColumn("SleepDay", to_date("SleepDay", "d/m/yyyy"))\
+#    .withColumn("SleepDay", date_format("SleepDay", "yyyy/m/d"))
+
+#create day_of_week column
+#dailySleepFormatted = dailySleepFormatted\
+#    .withColumn("day_of_week", dayofweek("SleepDay"))\
+#    .withColumn("day_of_week", date_format(col("SleepDay"), "E"))
+
+#dailySleepFormatted = dailySleepFormatted.select("Id", "SleepDay", "TotalMinutesAsleep", "day_of_week")
+
+#display(dailySleepFormatted)
+
+#result = dailySleepFormatted.groupBy("day_of_week").agg(avg("TotalMinutesAsleep").alias("TotalMinutesAsleep"))
+#display(result)
+
+# COMMAND ----------
+
+# MAGIC %md ##User classification by training status
+# MAGIC Segmenting users based on their activity and sleep patterns. This can help identify different user groups with distinct behaviors.
+
+# COMMAND ----------
+
+from pyspark.sql.functions import when, col, avg
+
+
+
+joined_df = dailyActivity.alias("A")\
+    .join(dailySleep.alias("S"), col("A.ActivityDate") == col("S.SleepDay"), "inner")
+
+display(joined_df)
+
+# Group by Id and calculate average TotalSteps and TotalMinutesAsleep
+user_segments = joined_df\
+    .groupBy("A.Id").agg(avg("TotalSteps").alias("AvgSteps"), avg("TotalMinutesAsleep").alias("AvgMinutesAsleep"))
+
+
+
+#display(result_df)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##Average METs for single user
+
+# COMMAND ----------
+
 #display(minuteMETs)
 #minuteMETs.printSchema
 
 from pyspark.sql.functions import col, avg
 
-# 1. Delete the column 'Minute'
 minuteMETs = minuteMETs.drop("Minute")
-
-# 2. Group by 'Date'
 grouped_df = minuteMETs.groupBy("Id","Date")
-
-# 3. Make a mean of 'METs'
 result = grouped_df.agg(avg(col("METs")).alias("avg_METs"))
-
-# 4. Order by user
 result = result.orderBy("Id","Date")
-
 result = result.filter("Id == '1624580081'")
 
 display(result)
