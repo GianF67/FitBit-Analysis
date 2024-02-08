@@ -1,28 +1,17 @@
 # Databricks notebook source
-# MAGIC %md #FitBit Project
+# MAGIC %md #1) FitBit Project
 
 # COMMAND ----------
 
-#the following code will delete all yours DBFS 
-#display(dbutils.fs.ls("/FileStore/"))
-#dbutils.fs.rm("/FileStore/tables", recurse=True)
+# MAGIC %md
+# MAGIC ## 1.1) Description
+# MAGIC This dataset includes health data about 30 people, such as daily activity, heart rate, sleep monitoring etc., tracked by their FitBit over a period of 30 days (from 12/04/2016 to 12/05/2016).
+# MAGIC
+# MAGIC Our goal is to analyze the athletes' routine to recognize patterns and trends in their activities.
 
 # COMMAND ----------
 
-#dbutils.fs.cp("/heartrate.csv", "FileStore/tables/a.csv")
-
-# Specify the relative path to the file in the same directory
-#relative_path = "/heartrate.csv"
-
-# Read the CSV file into a DataFrame
-#df = spark.read.csv(relative_path, header=True, inferSchema=True)
-
-#relative_path = "subdirectory/your_file.csv"
-#df = spark.read.csv(relative_path, header=True, inferSchema=True)
-
-# COMMAND ----------
-
-# MAGIC %md #1) Import datasets
+# MAGIC %md #2) Import datasets
 
 # COMMAND ----------
 
@@ -93,60 +82,99 @@ hourlySteps = spark.read \
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC Questions:
-# MAGIC - What are some trends in smart device usage?
-# MAGIC - How could these trends apply to Bellabeat customers?
-# MAGIC - How can these trends help influence Bellabeat marketing strategy?
-
-# COMMAND ----------
-
-# MAGIC %md #2) Process and Data Cleaning
+# MAGIC %md #3) Data Cleaning
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##2.1) dailyActivity
+# MAGIC ##3.0) Libraries
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col, dayofweek, date_format, round
+from pyspark.sql.types import DoubleType
+from pyspark.sql.functions import col, dayofweek, date_format, round, udf, count, to_date, split,to_timestamp, avg, sum, when
+from pyspark.sql.types import DateType
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+import numpy as np
+import random
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##3.1) Daily Activity
+
+# COMMAND ----------
+
+def sumDistances(x,y,z,k):
+	return x+y+z+k
+
+sum_udf=udf(sumDistances,DoubleType())
+
+# COMMAND ----------
 
 dailyActivityFormatted = dailyActivity
 
 dailyActivityFormatted = dailyActivityFormatted\
     .withColumn("TotalSteps", col("TotalSteps").cast("int"))\
-    .withColumn("WeekDay", dayofweek("ActivityDate"))\
+    .withColumn("WeekDayN", dayofweek("ActivityDate"))\
     .withColumn("WeekDay", date_format(col("ActivityDate"), "E"))\
-    .withColumnRenamed('ActivityDate','Date')
-    #.withColumn("TotalDistance", round(col("TotalDistance"), 2))\
-    #.withColumn("TotalSteps", round(col("TotalSteps"), 2))\
-    #.withColumn("Calories", round(col("Calories"), 2))\
+    .withColumnRenamed('ActivityDate','Date')    
 
-#dailyActivityFormatted = dailyActivityFormatted.select('Id','Date','WeekDay','TotalSteps','TotalDistance','Calories')
+# Creates new column: SumOfDistances
+dailyActivityFormatted = dailyActivityFormatted.alias('A')\
+    .select(\
+        dailyActivityFormatted.Id,\
+        dailyActivityFormatted.Date,\
+        dailyActivityFormatted.TotalSteps,\
+        dailyActivityFormatted.TotalDistance,\
+        dailyActivityFormatted.SedentaryActiveDistance,\
+        dailyActivityFormatted.LightActiveDistance,\
+        dailyActivityFormatted.ModeratelyActiveDistance,\
+        dailyActivityFormatted.VeryActiveDistance,\
+        dailyActivityFormatted.SedentaryMinutes,\
+        dailyActivityFormatted.LightlyActiveMinutes,\
+        dailyActivityFormatted.FairlyActiveMinutes,\
+        dailyActivityFormatted.VeryActiveMinutes,\
+        dailyActivityFormatted.Calories,\
+        dailyActivityFormatted.WeekDay,\
+        dailyActivityFormatted.WeekDayN,\
+        sum_udf(\
+            col('A.VeryActiveDistance'),\
+            col('A.ModeratelyActiveDistance'),\
+            col('A.LightActiveDistance'),\
+            col('A.SedentaryActiveDistance')))\
+    .withColumnRenamed('sumDistances(VeryActiveDistance, ModeratelyActiveDistance, LightActiveDistance, SedentaryActiveDistance)','SumOfDistances')
 
-#display(dailyActivityFormatted)
+# Remove rows with missing distance values, otherwise we will have fake outliers
+dailyActivityFormatted = dailyActivityFormatted\
+    .filter("SumOfDistances>0")\
+    .orderBy('Date','Id')
+
+display(dailyActivityFormatted)
 
 # COMMAND ----------
 
-#Check for missing-values and duplicates
+# Check missing-values 
+missing_count = dailyActivityFormatted\
+    .filter(dailyActivityFormatted["Id"].isNull()).count()
 
-from pyspark.sql.functions import count
-
-missing_count = dailyActivityFormatted.filter(dailyActivityFormatted["Id"].isNull()).count()
 print("Missing Count:", missing_count)
 
+# Check duplicates
 grouped_df = dailyActivityFormatted.groupBy("Id", "Date", "TotalSteps").agg(count("*").alias("Count"))
+
 filtered_df = grouped_df.filter(grouped_df["Count"] > 1)
 result_df = filtered_df.select("Id", "Date", "TotalSteps", "Count")
 
-#display(result_df)
+print("Duplicates:", result_df.count())
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##2.2) minuteMETs
-# MAGIC MET (Metabolic Equivalent of Task) is a physiological measure expressing the energy cost of physical activities. 
+# MAGIC ##3.2) Minute METs
+# MAGIC MET (Metabolic Equivalent of Task) is a physiological measure expressing the energy cost of physical activities.<br>
 # MAGIC MET values are often used to estimate calorie expenditure during physical activities.
 
 # COMMAND ----------
@@ -157,107 +185,114 @@ minuteMETsFormatted=minuteMETsFormatted\
   .withColumnRenamed('Activity','Date')\
   .withColumnRenamed('Minute','Time')
 
-#display(minuteMETsFormatted)
-#minuteMETsFormatted.printSchema()
+display(minuteMETsFormatted)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##2.3) dailySleep
+# MAGIC ##3.3) Daily Sleep
 
 # COMMAND ----------
-
-from pyspark.sql.functions import to_date, split
-from pyspark.sql.types import DateType
-import pandas as pd
 
 dailySleepFormatted = dailySleep
 
+# Split the column 'SleepDay' in order to get just the date
 dailySleepFormatted = dailySleepFormatted\
     .withColumn("SleepDay", split(dailySleep.SleepDay, " ")[0])
 
+# Add the new columns 'WeekDay' and 'WeekDayN'
 dailySleepFormatted = dailySleepFormatted\
-    .withColumn("SleepDay", to_date(dailySleepFormatted.SleepDay, "M/d/yyyy").cast(DateType()))
+    .withColumn("SleepDay", to_date(dailySleepFormatted.SleepDay, "M/d/yyyy").cast(DateType()))\
+    .withColumn("WeekDayN", dayofweek("SleepDay"))\
+    .withColumn("WeekDay", date_format(col("SleepDay"), "E"))\
+    .drop('TotalSleepRecords')\
+    .withColumnRenamed('SleepDay','Date')\
+    .orderBy('Date','Id')
 
-dailySleepFormatted = dailySleepFormatted\
-    .withColumn("Weekday", dayofweek("SleepDay"))
-
-dailySleepFormatted = dailySleepFormatted\
-    .withColumn("Weekday", date_format(col("SleepDay"), "E"))
-
-dailySleepFormatted = dailySleepFormatted.drop('TotalSleepRecords')
-
-#display(dailySleepFormatted)
+display(dailySleepFormatted)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##2.4) hourlySteps
+# MAGIC ##3.4) Hourly Steps
 
 # COMMAND ----------
-
-from pyspark.sql.functions import split, col, to_timestamp, date_format
 
 # Convert the string into a timestamp
-hourlyStepsFormatted = hourlySteps.withColumn("ActivityHour", to_timestamp("ActivityHour", "M/d/yyyy h:mm:ss a"))
+hourlyStepsFormatted = hourlySteps\
+    .withColumn("ActivityHour", to_timestamp("ActivityHour", "M/d/yyyy h:mm:ss a"))
 
 # Format the timestamp into the desired format
-hourlyStepsFormatted = hourlyStepsFormatted.withColumn("ActivityHour", date_format("ActivityHour", "M/d/yyyy HH:mm"))
+hourlyStepsFormatted = hourlyStepsFormatted\
+    .withColumn("ActivityHour", date_format("ActivityHour", "M/d/yyyy HH:mm"))
 
 # Split the 'ActivityHour' column into two columns: 'Day' and 'Time'
-hourlyStepsFormatted = hourlyStepsFormatted.withColumn("Day", split(col("ActivityHour"), " ")[0])
-hourlyStepsFormatted = hourlyStepsFormatted.withColumn("Hour", split(col("ActivityHour"), " ")[1])
+hourlyStepsFormatted = hourlyStepsFormatted\
+    .withColumn("Day", split(col("ActivityHour"), " ")[0])\
+    .withColumn("Hour", split(col("ActivityHour"), " ")[1])
 
-# Drop the original 'ActivityHour' column
-hourlyStepsFormatted = hourlyStepsFormatted.drop("ActivityHour")
-
-hourlyStepsFormatted = hourlyStepsFormatted.withColumnRenamed('StepTotal','Steps')
+hourlyStepsFormatted = hourlyStepsFormatted\
+    .withColumnRenamed('StepTotal','Steps')
 
 # Reorder the columns as per your requirement
-hourlyStepsFormatted = hourlyStepsFormatted.select("Id", "Day", "Hour", "Steps")
+hourlyStepsFormatted = hourlyStepsFormatted\
+    .select("Id", "Day", "Hour", "Steps")
 
-#display(hourlyStepsFormatted)
+display(hourlyStepsFormatted)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##2.5) Other 
+# MAGIC ##3.5) Daily Intensity
 
 # COMMAND ----------
 
-#Modify hourlyCalories by splitting Time and date
+dailyIntensitiesFormatted = dailyIntensities\
+    .withColumnRenamed('ActivityDay','Date')\
+    .orderBy('Id','Date')
+
+display(dailyIntensitiesFormatted)
+#display(dailyActivityFormatted)
+
+#print("dailyActivity:",dailyActivityFormatted.count())
+#print("dailyIntensity:",dailyIntensitiesFormatted.count())
+
+#TODO: to fix 
+tmp = dailyActivityFormatted.alias('A')\
+    .join(dailyIntensitiesFormatted.alias('I'),("Date"), "inner")
+
+#display(tmp.count())
 
 # COMMAND ----------
 
-#Modify hourlyIntensities by splitting Time and date
+# MAGIC %md
+# MAGIC ##3.6) Other 
 
 # COMMAND ----------
 
 #Number of Users
-
 users = dailyActivity.select("Id").distinct()
-#display(users)
+#display(users) # 33 users 
 
 # COMMAND ----------
 
-# MAGIC %md #3) Analyze
+# MAGIC %md #4) Analyses
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.1) Daily Average Analysis
+# MAGIC ##4.1) Daily Average Analysis
+# MAGIC A daily average analysis based on the provided smart device usage data, we can calculate the average values for relevant metrics for each day
 
 # COMMAND ----------
 
-from pyspark.sql.functions import avg, col
-import matplotlib.pyplot as plt
-
 q1 = (
     dailyActivityFormatted
-    .groupBy("WeekDay")
-    .agg(avg("TotalSteps").alias("avg_steps"),
-         avg("TotalDistance").alias("avg_distance"),
-         avg("Calories").alias("avg_calories"))
+    .orderBy("WeekDayN","WeekDay")
+    .groupBy("WeekDayN","WeekDay")
+    .agg(avg("TotalSteps").alias("AvgSteps"),
+         avg("TotalDistance").alias("AvgDistance"),
+         avg("Calories").alias("AvgCalories"))
 )
 
 '''
@@ -279,13 +314,15 @@ display(q1)
 q1Tmp = q1.toPandas()
 
 x = q1Tmp.WeekDay
-y1 = q1Tmp.avg_steps
-#y2 = q1Tmp.avg_distance
-#y3 = q1Tmp.avg_calories
+y1 = q1Tmp.AvgSteps
+y2 = q1Tmp.AvgDistance
+y3 = q1Tmp.AvgCalories
 
 fig, ax = plt.subplots(figsize=(15, 5))
 
 ax.bar(x, y1)
+#ax.bar(x, y2)
+#ax.bar(x, y3)
 
 ax.set_xlabel('Days')
 ax.set_ylabel('Steps')
@@ -305,25 +342,19 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ##3.2) Compare Different Metrics
-
-# COMMAND ----------
-
-# MAGIC %md
 # MAGIC Duration of each Activity and Calories Burned Per User
 
 # COMMAND ----------
-
-from pyspark.sql.functions import sum, col
 
 q2 = (
     dailyActivityFormatted
     .groupBy("Id")
     .agg(
-        sum("TotalSteps").alias("total_steps"),
-        sum("VeryActiveMinutes").alias("total_very_active_mins"),
-        sum("FairlyActiveMinutes").alias("total_fairly_active_mins"),
-        sum("LightlyActiveMinutes").alias("total_lightly_active_mins"),
-        sum("Calories").alias("total_calories")
+        sum("TotalSteps").alias("TotalSteps"),
+        sum("LightlyActiveMinutes").alias("TotalLightlyActiveMinutes"),
+        sum("FairlyActiveMinutes").alias("TotalFairlyActiveMinutes"),
+        sum("VeryActiveMinutes").alias("TotalVeryActiveMinutes"),
+        sum("Calories").alias("TotalCalories")
     )
 )
 
@@ -336,7 +367,36 @@ display(q2)
 
 # COMMAND ----------
 
-#TODO: add charts
+# Scatter plot between TotalCalories and TotalSteps
+q2Tmp = q2.toPandas()
+
+x = q2Tmp.TotalCalories
+y = q2Tmp.TotalSteps
+
+plt.scatter(x, y)
+
+model = LinearRegression()
+model.fit(x.values.reshape(-1, 1), y)
+
+# Predict y values using the model
+y_pred = model.predict(x.values.reshape(-1, 1))
+
+# Plot the scatterplot
+plt.scatter(x, y, color='blue', alpha=0.5)
+
+# Plot the line of best fit
+plt.plot(x, y_pred, color='red', linewidth=2, label='Regression')
+
+plt.title('TotalCalories VS TotalSteps')
+plt.xlabel('TotalCalories')
+plt.ylabel('TotalSteps')
+plt.grid()
+plt.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC The total steps vary significantly across users, ranging from as low as 12,352 to as high as 702,840. This indicates diverse levels of physical activity among users.
 
 # COMMAND ----------
 
@@ -344,8 +404,6 @@ display(q2)
 # MAGIC ##3.4) Average Steps Per Hours
 
 # COMMAND ----------
-
-from pyspark.sql.functions import col, avg
 
 q3 = (
     hourlyStepsFormatted
@@ -387,10 +445,6 @@ plt.show()
 # MAGIC This query can help understand if there are consistent patterns or if certain metrics are more influential in different periods.
 
 # COMMAND ----------
-
-from pyspark.sql.functions import avg
-import matplotlib.pyplot as plt
-import numpy as np
 
 q4 = (
     dailyActivityFormatted
@@ -453,10 +507,6 @@ plt.show()
 
 # COMMAND ----------
 
-#TODO: to fix it ==> all intensities are HIGH
-
-from pyspark.sql.functions import avg, col, when
-
 q5 = (
     minuteMETsFormatted
     .groupBy("Id")
@@ -471,9 +521,6 @@ q5 = (
 )
 
 #display(q5)
-
-import matplotlib.pyplot as plt
-import pandas as pd
 
 q5Tmp = q5\
     .groupBy('IntensityLevel')\
@@ -518,9 +565,6 @@ plt.show()
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col
-import matplotlib.pyplot as plt
-
 q6 = (
     minuteMETsFormatted
     .groupBy("METs")
@@ -541,19 +585,36 @@ q6 = (
 
 # COMMAND ----------
 
-from pyspark.sql.functions import avg
-
 dailySleepFormatted2 = dailySleepFormatted
 
-# Drop unnecessary columns and calculate average TotalTimeInBed grouped by Weekday
+# Select necessary columns and calculate average TotalTimeInBed grouped by Weekday
 sleepmean = dailySleepFormatted2\
-    .drop("Id", "SleepDay", "TotalSleepRecords", "TotalTimeInBed")\
-    .groupBy("Weekday")\
+    .select("WeekDayN","WeekDay","TotalMinutesAsleep")\
+    .groupBy("WeekDayN","WeekDay")\
     .agg(round(avg("TotalMinutesAsleep")).alias("AvgSleepMinutes"))
+
+sleepmean = sleepmean.orderBy("WeekDayN")
 
 #display(sleepmean)
 
-#TODO: make a chart
+sleepmeanTmp = sleepmean.toPandas()
+
+x = sleepmeanTmp.WeekDay
+y = sleepmeanTmp.AvgSleepMinutes
+
+fig, ax = plt.subplots(figsize=(15, 5))
+
+ax.bar(x, y)
+
+ax.set_xlabel('Days')
+ax.set_ylabel('Average Minute Asleep')
+
+plt.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC As we can see all the users have almost the same quantity of sleep during the week, which is around 6 hours and a half (with a little increse in Sunday and Wednesday)
 
 # COMMAND ----------
 
@@ -564,14 +625,12 @@ sleepmean = dailySleepFormatted2\
 
 #Sleep Trend Analysis
 
-from pyspark.sql import SparkSession
-
 joined_df = dailyActivityFormatted\
-    .join(dailySleepFormatted, dailyActivityFormatted["Date"] == dailySleepFormatted["SleepDay"], "inner")
+    .join(dailySleepFormatted, dailyActivityFormatted["Date"] == dailySleepFormatted["Date"], "inner")
 
 q7 = joined_df\
-    .select("SleepDay", "TotalMinutesAsleep")\
-    .orderBy("SleepDay")
+    .select(dailySleepFormatted.Date, "TotalMinutesAsleep")\
+    .orderBy(dailySleepFormatted.Date)
 
 display(q7)
 
@@ -582,10 +641,8 @@ display(q7)
 
 # COMMAND ----------
 
-from pyspark.sql.functions import when, col, avg
-
 activityAndSleep = dailyActivityFormatted.alias('A')\
-    .join(dailySleepFormatted.alias('S'), col("A.Date") == col("S.SleepDay"), "inner")
+    .join(dailySleepFormatted.alias('S'), col("A.Date") == col("S.Date"), "inner")
 
 # Group by Id and calculate average TotalSteps and TotalMinutesAsleep
 userSegments = activityAndSleep\
@@ -606,13 +663,9 @@ q8 = userSegments.withColumn("UserSegment",
 
 q8 = q8.select("Id", "AvgSteps", "AvgMinutesAsleep", "UserSegment")
 
-#display(q8)
+display(q8)
 
 # COMMAND ----------
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 
 q8Tmp = q8.toPandas()
 
@@ -647,7 +700,7 @@ axs[1].legend()
 #plt.xticks(rotation=90)
 plt.ylabel('sleep')
 plt.xlabel('Id')
-
+plt.grid()
 plt.legend() 
 plt.show()
 
@@ -661,9 +714,6 @@ plt.show()
 # MAGIC - These insights provide a high-level understanding of user behavior, allowing for targeted interventions or personalized recommendations.
 
 # COMMAND ----------
-
-import matplotlib.pyplot as plt
-import pandas as pd
 
 q8Tmp = q8\
     .groupBy('UserSegment')\
@@ -688,12 +738,8 @@ plt.show()
 
 # COMMAND ----------
 
-from pyspark.sql.functions import sum
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
-
 joined_df = dailyActivityFormatted.alias('A') \
-  .join(dailySleepFormatted.alias('S'), (col('A.Id') == col('S.Id')) & (col('A.Date') == col('S.SleepDay')), 'inner')
+  .join(dailySleepFormatted.alias('S'), (col('A.Id') == col('S.Id')) & (col('A.Date') == col('S.Date')), 'inner')
 
 q9 = joined_df\
     .groupBy("A.Id")\
@@ -718,7 +764,7 @@ model.fit(x.values.reshape(-1, 1), y)
 y_pred = model.predict(x.values.reshape(-1, 1))
 
 #set size
-plt.figure(figsize=(15, 3))
+plt.figure(figsize=(15, 5))
 plt.tight_layout()
 
 # Plot the scatterplot
@@ -743,32 +789,9 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.11) Average METs for single user (?)
+# MAGIC ##3.11) Thomas analysys
 
 # COMMAND ----------
-
-#display(minuteMETs)
-#minuteMETs.printSchema
-
-from pyspark.sql.functions import col, avg
-
-minuteMETs = minuteMETsFormatted.drop("Minute")
-grouped_df = minuteMETsFormatted.groupBy("Id","Date")
-
-q10 = grouped_df.agg(avg(col("METs")).alias("avg_METs"))
-q10 = q10.orderBy("Id","Date")
-q10 = q10.filter("Id == '1624580081'")
-
-display(q10)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ##3.12) Thomas analysys
-
-# COMMAND ----------
-
-from pyspark.sql import SparkSession
 
 df1 = dailyActivity.select("Id", "ActivityDate","Calories").\
     withColumnRenamed("ActivityDate", "DayA").\
@@ -786,10 +809,6 @@ q11 = q11.select("Id", "Day", "Calories", "AvgHeartrate")
 display(q11)
 
 # COMMAND ----------
-
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-import random
 
 # Collect all distinct IDs
 distinct_ids = q11.select("Id").distinct().collect()
@@ -820,9 +839,6 @@ P4 = q11.filter(col("Id") == selected_ids[3]).alias("P4")
 #display(P4)
 
 # COMMAND ----------
-
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
 
 x1 = P1.select('AvgHeartrate').toPandas()['AvgHeartrate']
 y1 = P1.select('Calories').toPandas()['Calories']
@@ -922,10 +938,57 @@ display(P3_1)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC #4) Conclusion
+# MAGIC ##3.12) Average METs for single user (?)
+
+# COMMAND ----------
+
+#display(minuteMETs)
+
+minuteMETs = minuteMETsFormatted.drop("Minute")
+grouped_df = minuteMETsFormatted.groupBy("Id","Date")
+
+q10 = grouped_df.agg(avg(col("METs")).alias("AvgMETs"))
+q10 = q10.orderBy("Id","Date")
+q10 = q10.filter("Id == '1624580081'")
+
+display(q10)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC #5) Reference
+# MAGIC #5) Conclusion
+# MAGIC
+# MAGIC In this comprehensive analysis of Bellabeat's smart device usage data, we delved into various aspects of user behavior, ranging from daily activity patterns to sleep metrics. The analysis aimed to provide actionable insights for Bellabeat's marketing strategy by understanding trends and identifying potential opportunities for growth.
+# MAGIC
+# MAGIC Here are the key findings and recommendations:
+# MAGIC
+# MAGIC Daily Activity Patterns:
+# MAGIC Activity Distribution Over the Day: Users tend to be more active during the morning and early afternoon, with a peak in steps between 8:00 AM and 7:00 PM.Understanding peak activity hours allows for targeted engagement, promotions, or notifications during these times.
+# MAGIC
+# MAGIC Metrics Comparison Over Time: The distribution of metrics such as steps, distance, and calories burned varies over time.Identifying trends or unusual events in these metrics can help understand users routines and tailor marketing strategies accordingly.
+# MAGIC
+# MAGIC Intensity of Activities:
+# MAGIC Categorization by Intensity:Users were categorized into intensity levels based on average METs.All users were classified as engaging in "Vigorous Intensity" activities.Tailoring recommendations, features, and content for users involved in vigorous activities could enhance engagement.
+# MAGIC
+# MAGIC METs Distribution:Exploring the distribution of METs provided insights into the range of activity intensities recorded by the devices.Bellabeat can leverage METs data to categorize activities and offer personalized recommendations for users.
+# MAGIC
+# MAGIC Sleep Patterns:
+# MAGIC Identifying Sleep Patterns:Analyzing sleep data revealed average sleep durations for each day of the week.Understanding day-to-day variability in sleep patterns can help tailor wellness features or recommendations.
+# MAGIC
+# MAGIC User Segmentation:Users were segmented based on their activity and sleep patterns.Segments include "Less Active, Less Sleep," "Active, Less Sleep," and more, providing insights for targeted interventions.
+# MAGIC
+# MAGIC Sleep and Calories Comparison:Examining the relationship between sleep metrics and calories burned highlighted variations in sleep duration and calories expended during activities.
+# MAGIC
+# MAGIC Recommendations:
+# MAGIC Tailor marketing strategies and product features based on the diverse user profiles identified in the analysis.
+# MAGIC Provide specialized content, challenges, or workouts for users with specific activity patterns or intensity levels.
+# MAGIC Use insights into peak activity hours to optimize engagement strategies, promotions, or notifications during high-activity periods.
+# MAGIC Leverage insights into sleep patterns to enhance sleep-related features or offer personalized recommendations for better sleep.
+# MAGIC Foster a sense of community among users with similar activity levels or goals through forums, groups, or challenges.
+# MAGIC Ensure seamless integration with wearables during vigorous activities to capture accurate and real-time data.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC #6) Reference (to delete)
 # MAGIC https://www.kaggle.com/code/deepalisukhdeve/data-driven-wellness#Analyze
