@@ -282,7 +282,10 @@ users = dailyActivity.select("Id").distinct()
 
 # MAGIC %md
 # MAGIC ##4.1) Daily Average Analysis
-# MAGIC A daily average analysis based on the provided smart device usage data, we can calculate the average values for relevant metrics for each day
+# MAGIC With this analysis we wanted to calculate, for each day, the average values for the main metrics:
+# MAGIC - average steps
+# MAGIC - average distance
+# MAGIC - average calories (burned)
 
 # COMMAND ----------
 
@@ -307,7 +310,7 @@ display(q1)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Average Steps Per Day
+# MAGIC This chart shows the average steps per day
 
 # COMMAND ----------
 
@@ -342,7 +345,7 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ##3.2) Compare Different Metrics
-# MAGIC Duration of each Activity and Calories Burned Per User
+# MAGIC With this analysis we wanted to calculate, for each users, the duration of each activity with its relative burned calories
 
 # COMMAND ----------
 
@@ -396,7 +399,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The total steps vary significantly across users, ranging from as low as 12,352 to as high as 702,840. This indicates diverse levels of physical activity among users.
+# MAGIC As we can see from the chart, the total steps vary significantly across users, ranging from 12.352 to 502,840. Therefore, this indicates diverse levels of physical activity among users.
 
 # COMMAND ----------
 
@@ -442,7 +445,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md ##3.5) Metrics Comparison Over Time
-# MAGIC This query can help understand if there are consistent patterns or if certain metrics are more influential in different periods.
+# MAGIC With this analysis, we wanted to understand if there are patterns or if certain metrics are more influential in different periods.
 
 # COMMAND ----------
 
@@ -485,6 +488,11 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ##3.6) Categorize users into different physical activity levels
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC - minuteMETs appears to contain information about METs (Metabolic Equivalents of Task) for different activity minutes.
 # MAGIC
 # MAGIC   This table could be useful for exploring the intensity of physical activities undertaken by users and correlate it with other metrics like steps, distance, or calories burned.
@@ -496,14 +504,9 @@ plt.show()
 # MAGIC   - In the context of health and fitness tracking, METs are valuable because they provide a standardized way to measure and compare the intensity of different physical activities. Understanding METs allows to categorize activities based on their energy expenditure.
 # MAGIC
 # MAGIC - Here's how METs are generally categorized:
-# MAGIC   - Low Intensity (1-3 METs): Activities such as sitting, standing, or casual walking.
-# MAGIC   - Moderate Intensity (3-6 METs): Activities like brisk walking, cycling at a moderate pace, or light housework.
-# MAGIC   - Vigorous Intensity (6+ METs): Activities that significantly raise your heart rate and breathing, such as running, cycling at a high speed, or intense exercise.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ##3.6) Categorize users into different intensity levels
+# MAGIC   - Low Intensity (1-10 METs): Activities such as sitting, standing, or casual walking.
+# MAGIC   - Medium Intensity (11-15 METs): Activities like brisk walking, cycling at a moderate pace, or light housework.
+# MAGIC   - High Intensity (16+ METs): Activities that significantly raise your heart rate and breathing, such as running, cycling at a high speed, or intense exercise.
 
 # COMMAND ----------
 
