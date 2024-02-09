@@ -21,6 +21,10 @@
 
 # COMMAND ----------
 
+dbutils.fs.rm("/FileStore/tables", recurse=True)
+
+# COMMAND ----------
+
 inferSchema = "true"
 
 dailyActivity = spark.read \
@@ -875,7 +879,12 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.11) Thomas analysys
+# MAGIC ##3.11) Heartrate and Calories
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC This analysis is aimed at finding a correlation between heartrate and calorie consumption.
 
 # COMMAND ----------
 
@@ -893,6 +902,11 @@ q11 = df1.join(df2,(df1["DayA"]==df2["Day"]) & (df1["IdA"]==df2["Id"]), "inner")
 
 q11 = q11.select("Id", "Day", "Calories", "AvgHeartrate")
 display(q11)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC As a sample on the data, I will now focus on four random users
 
 # COMMAND ----------
 
@@ -1011,6 +1025,13 @@ plt.show()
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC We can see from the graphs that while all users present a positive correlation between calorie consumption and a high heartrate, one of our sample users does not.
+# MAGIC In fact, it seems they consumed more calories while mainting a lower heartrate.
+# MAGIC Let's now see what kind of exercise this user does.
+
+# COMMAND ----------
+
 P3_tmp = P3.join(dailyActivity, (P3["Id"]==dailyActivity["Id"]) & (P3["Day"]==dailyActivity["ActivityDate"]))
 #display(P3_tmp)
 P3_1 = P3_tmp.select(P3["Id"], "Day", "VeryActiveMinutes", "FairlyActiveMinutes", "LightlyActiveMinutes", "SedentaryMinutes", P3["Calories"])
@@ -1019,7 +1040,7 @@ display(P3_1)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC While high heartrate during exercise has a positive correlation with calories burned in MOST individuals, we can see that there are outliers such as P3. They burned more calories during low intensity exercise.
+# MAGIC By comparing the values in the FairlyActiveMinutes to those in the LightlyActiveMinutes and SedentaryMinutes, we can deduce that this user prefers low intensity exercise AND that they burn the most calories doing low intensity activities. This suggests that not all individuals respond the same way to the same workout.
 
 # COMMAND ----------
 
@@ -1054,16 +1075,18 @@ display(q10)
 # MAGIC Metrics Comparison Over Time: The distribution of metrics such as steps, distance, and calories burned varies over time.Identifying trends or unusual events in these metrics can help understand users routines and tailor marketing strategies accordingly.
 # MAGIC
 # MAGIC Intensity of Activities:
-# MAGIC Categorization by Intensity:Users were categorized into intensity levels based on average METs.All users were classified as engaging in "Vigorous Intensity" activities.Tailoring recommendations, features, and content for users involved in vigorous activities could enhance engagement.
+# MAGIC Categorization by Intensity: Users were categorized into intensity levels based on average METs.All users were classified as engaging in "Vigorous Intensity" activities.Tailoring recommendations, features, and content for users involved in vigorous activities could enhance engagement.
 # MAGIC
-# MAGIC METs Distribution:Exploring the distribution of METs provided insights into the range of activity intensities recorded by the devices.Bellabeat can leverage METs data to categorize activities and offer personalized recommendations for users.
+# MAGIC METs Distribution: Exploring the distribution of METs provided insights into the range of activity intensities recorded by the devices.Bellabeat can leverage METs data to categorize activities and offer personalized recommendations for users.
 # MAGIC
 # MAGIC Sleep Patterns:
-# MAGIC Identifying Sleep Patterns:Analyzing sleep data revealed average sleep durations for each day of the week.Understanding day-to-day variability in sleep patterns can help tailor wellness features or recommendations.
+# MAGIC Identifying Sleep Patterns: Analyzing sleep data revealed average sleep durations for each day of the week.Understanding day-to-day variability in sleep patterns can help tailor wellness features or recommendations.
 # MAGIC
-# MAGIC User Segmentation:Users were segmented based on their activity and sleep patterns.Segments include "Less Active, Less Sleep," "Active, Less Sleep," and more, providing insights for targeted interventions.
+# MAGIC User Segmentation: Users were segmented based on their activity and sleep patterns.Segments include "Less Active, Less Sleep," "Active, Less Sleep," and more, providing insights for targeted interventions.
 # MAGIC
-# MAGIC Sleep and Calories Comparison:Examining the relationship between sleep metrics and calories burned highlighted variations in sleep duration and calories expended during activities.
+# MAGIC Sleep and Calories Comparison: Examining the relationship between sleep metrics and calories burned highlighted variations in sleep duration and calories expended during activities.
+# MAGIC
+# MAGIC Heartrate and Calories: In some individuals, high heartrate does not always mean higher calorie consumption. We should strive to recommend tailored training for each user, based on their own metabolism, to maximize calorie expenditure.
 # MAGIC
 # MAGIC Recommendations:
 # MAGIC Tailor marketing strategies and product features based on the diverse user profiles identified in the analysis.
