@@ -319,6 +319,18 @@ users = dailyActivity.select("Id").distinct()
 
 # COMMAND ----------
 
+df = dailyActivity
+
+display(df)
+
+# Compute descriptive statistics for all numerical columns
+display(df.describe())
+
+# Compute descriptive statistics for a specific column
+display(df.select("TotalSteps").describe())
+
+# COMMAND ----------
+
 # Global variables
 
 color_blu = '#205bc9'
@@ -488,7 +500,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC As we can see from the chart, the total steps vary significantly across users, ranging from 12.352 to 502,840. Therefore, this indicates diverse levels of physical activity among users.
+# MAGIC As we can see from the chart, the total steps vary significantly across users, ranging from 12000 to 500000. Therefore, this indicates diverse levels of physical activity among users.
 
 # COMMAND ----------
 
@@ -523,13 +535,10 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC - The average number of steps varies across different hours of the day, indicating distinct patterns in user activity.
-# MAGIC - During the early morning hours (12 AM to 6 AM), the average steps are relatively low, suggesting that users tend to be less active during these hours, possibly due to sleeping.
-# MAGIC - There is a noticeable increase in average steps from 6 AM to 10 AM, indicating a peak in activity during the morning hours. This could be attributed to activities such as morning walks or commutes.
-# MAGIC - The average steps remain relatively consistent from 10 AM to 2 PM, suggesting that users maintain a certain level of activity during this midday period.
-# MAGIC - The average steps decrease again in the late evening, suggesting reduced activity during the nighttime hours.
-# MAGIC - Peak hours of user activity can be identified to target specific time slots for engagement, promotions, or notifications related to wellness activities.
-# MAGIC - These insights provide a temporal understanding of user activity patterns throughout the day, allowing Bellabeat to tailor its product features or marketing strategies to align with users' daily routines.
+# MAGIC The average number of steps fluctuates throughout different time intervals of the day, revealing distinct patterns in user activity. As we can see from the chart, we can identify three intervals:
+# MAGIC 1. Between midnight and 6, there is a decline in the average steps, implying lower activity levels, potentially during sleep.
+# MAGIC 2. Between 6 to 19, indicating heightened activity during the morning hours, likely due to activities like morning walks or commutes, which indicates high level of activities.
+# MAGIC 3. After 19 PM, there is decline in average steps, indicating decreased activity during nighttime hours.
 
 # COMMAND ----------
 
@@ -579,24 +588,19 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ##4.6) Categorize users into different physical activity levels
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC - minuteMETs appears to contain information about METs (Metabolic Equivalents of Task) for different activity minutes.
 # MAGIC
-# MAGIC   This table could be useful for exploring the intensity of physical activities undertaken by users and correlate it with other metrics like steps, distance, or calories burned.
+# MAGIC In this anylysy we want to categorize users based on their activity level and to do so we use the table minuteMETs, which could be useful for exploring the intensity of physical activities and correlate it with other metrics like steps, distance, or calories burned.
 # MAGIC
-# MAGIC   - METs are a measure of the energy expenditure of physical activities.
+# MAGIC - METs are a measure of the energy expenditure of physical activities.
 # MAGIC
-# MAGIC   - One MET is defined as the energy expenditure at rest, which is equivalent to sitting quietly.
+# MAGIC - One MET is defined as the energy expenditure at rest, which is equivalent to sitting quietly.
 # MAGIC
-# MAGIC   - In the context of health and fitness tracking, METs are valuable because they provide a standardized way to measure and compare the intensity of different physical activities. Understanding METs allows to categorize activities based on their energy expenditure.
+# MAGIC - In the context of health and fitness tracking, METs are valuable because they provide a standardized way to measure and compare the intensity of different physical activities. Understanding METs allows to categorize activities based on their energy expenditure.
 # MAGIC
-# MAGIC - Here's how METs are generally categorized:
-# MAGIC   - Low Intensity (1-10 METs): Activities such as sitting, standing, or casual walking.
-# MAGIC   - Medium Intensity (11-15 METs): Activities like brisk walking, cycling at a moderate pace, or light housework.
-# MAGIC   - High Intensity (16+ METs): Activities that significantly raise your heart rate and breathing, such as running, cycling at a high speed, or intense exercise.
+# MAGIC Here's how METs we categorized:
+# MAGIC - Low Intensity (1-10 METs): Activities such as sitting, standing, or casual walking.
+# MAGIC - Medium Intensity (11-15 METs): Activities like brisk walking, cycling at a moderate pace, or light housework.
+# MAGIC - High Intensity (16+ METs): Activities that significantly raise your heart rate and breathing, such as running, cycling at a high speed, or intense exercise.
 
 # COMMAND ----------
 
@@ -615,6 +619,15 @@ q5 = (
 
 display(q5)
 
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC The above table shows the average METs and the corresponding intensity level for each user.
+# MAGIC
+# MAGIC As we can see, most users are categorized as "Medium", which mean their level of training is above the the world medium.
+
+# COMMAND ----------
+
 q5Tmp = q5\
     .groupBy('IntensityLevel')\
     .agg(sum("AvgMETs").alias("AvgMETs"),)
@@ -630,12 +643,6 @@ ax.axis('equal')
 plt.title('User Segments')
 
 plt.show()
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC The output shows the average METs and the corresponding intensity level for each user.
-# MAGIC As we can see, most users are categorized as "Medium", which mean their level of training is above the the world medium.
 
 # COMMAND ----------
 
