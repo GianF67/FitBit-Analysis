@@ -21,10 +21,6 @@
 
 # COMMAND ----------
 
-dbutils.fs.rm("/FileStore/tables", recurse=True)
-
-# COMMAND ----------
-
 inferSchema = "true"
 
 dailyActivity = spark.read \
@@ -323,18 +319,6 @@ users = dailyActivity.select("Id").distinct()
 
 # COMMAND ----------
 
-df = dailyActivity
-
-display(df)
-
-# Compute descriptive statistics for all numerical columns
-display(df.describe())
-
-# Compute descriptive statistics for a specific column
-display(df.select("TotalSteps").describe())
-
-# COMMAND ----------
-
 # Global variables
 
 color_blu = '#205bc9'
@@ -360,13 +344,6 @@ q1 = (
          avg("TotalDistance").alias("AvgDistance"),
          avg("Calories").alias("AvgCalories"))
 )
-
-'''
-q1 = q1\
-    .withColumn("avg_steps", round(col("avg_steps"), 2))\
-    .withColumn("avg_distance", round(col("avg_distance"), 2))\
-    .withColumn("avg_calories", round(col("avg_calories"), 2))
-'''
 
 display(q1)
 
@@ -411,8 +388,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC During which hour of the day were the more calories burned?<br>
-# MAGIC It provides insights into how users engage with their devices over time.
+# MAGIC Another interesting analysy is to understand during which hour of the day users burn more calories, providing insights into user engagement with their devices over time.
 
 # COMMAND ----------
 
@@ -443,7 +419,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC As we can see from the chart, the most desired time people are active throughout the day is between 8:00 AM - 7:00PM
+# MAGIC As we can see from the chart, the most desired time people are active throughout the day is between 8:00 and 19:00.
 
 # COMMAND ----------
 
@@ -470,7 +446,8 @@ display(q2)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.3) Activity Time and Calories Burned
+# MAGIC The total steps vary significantly across users, ranging from 12000 to 500000,indicating diverse levels of physical activity among users.<br>
+# MAGIC The following chart shows how as the steps increase the number of calories burned also increases.
 
 # COMMAND ----------
 
@@ -504,12 +481,12 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC As we can see from the chart, the total steps vary significantly across users, ranging from 12000 to 500000. Therefore, this indicates diverse levels of physical activity among users.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ##4.4) Average Steps Per Hours
+# MAGIC ##4.3) Average Steps Per Hours
+# MAGIC The average number of steps varies throughout different time intervals of the day, revealing distinct patterns in user activity. <br>
+# MAGIC As we can see from the chart, we can identify three intervals:
+# MAGIC 1. Between midnight and 6, there is a decline in the average steps, implying lower activity levels, potentially during sleep.
+# MAGIC 2. Between 6 to 19, indicating heightened activity during the morning hours, likely due to activities like morning walks or commutes, which indicates high level of activities.
+# MAGIC 3. After 19 PM, there is decline in average steps, indicating decreased activity during nighttime hours.
 
 # COMMAND ----------
 
@@ -539,15 +516,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The average number of steps fluctuates throughout different time intervals of the day, revealing distinct patterns in user activity. As we can see from the chart, we can identify three intervals:
-# MAGIC 1. Between midnight and 6, there is a decline in the average steps, implying lower activity levels, potentially during sleep.
-# MAGIC 2. Between 6 to 19, indicating heightened activity during the morning hours, likely due to activities like morning walks or commutes, which indicates high level of activities.
-# MAGIC 3. After 19 PM, there is decline in average steps, indicating decreased activity during nighttime hours.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ##4.5) Metrics Comparison Over Time
+# MAGIC ##4.4) Metrics Comparison Over Time
 # MAGIC With this analysis, we wanted to understand if there are patterns or if certain metrics are more influential in different periods.
 
 # COMMAND ----------
@@ -591,14 +560,13 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.6) Categorize users into different physical activity levels
+# MAGIC ##4.5) Users classification
 # MAGIC
-# MAGIC In this anylysy we want to categorize users based on their activity level and to do so we use the table minuteMETs, which could be useful for exploring the intensity of physical activities and correlate it with other metrics like steps, distance, or calories burned.
+# MAGIC In this anylysy we want to classify users based on their activity level, by analyzing the intensity of physical activities and correlate it with other metrics like steps, distance, or calories burned. To do so we are using the dataframe minuteMETsFormatted.
 # MAGIC
+# MAGIC What are METs?
 # MAGIC - METs are a measure of the energy expenditure of physical activities.
-# MAGIC
 # MAGIC - One MET is defined as the energy expenditure at rest, which is equivalent to sitting quietly.
-# MAGIC
 # MAGIC - In the context of health and fitness tracking, METs are valuable because they provide a standardized way to measure and compare the intensity of different physical activities. Understanding METs allows to categorize activities based on their energy expenditure.
 # MAGIC
 # MAGIC Here's how METs we categorized:
@@ -628,7 +596,7 @@ display(q5)
 # MAGIC %md
 # MAGIC The above table shows the average METs and the corresponding intensity level for each user.
 # MAGIC
-# MAGIC As we can see, most users are categorized as "Medium", which mean their level of training is above the the world medium.
+# MAGIC As we can see from the below chart, most users are categorized as "Medium Intensity", which means that the physical activite required a moderate amount of energy expenditure.
 
 # COMMAND ----------
 
@@ -644,15 +612,15 @@ sizes = q5Tmp['AvgMETs']
 fig, ax = plt.subplots()
 ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
 ax.axis('equal')  
-plt.title('User Segments')
+plt.title('User Classification')
 
 plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md 
-# MAGIC ##4.7) Intensity of Activities
-# MAGIC Exploring the distribution of METs to understand the range of activity intensities recorded by the devices.
+# MAGIC ##4.6) Intensity of Activities
+# MAGIC In this analysy we are exploring the distribution of METs to understand the range of activity intensities recorded by the FitBit.
 # MAGIC Identifying peak MET values and correlating them with specific activities or time periods.
 
 # COMMAND ----------
@@ -662,18 +630,71 @@ q6 = (
     .groupBy("METs")
     .count()
     .orderBy("METs")
+    .select("METs", col("count").alias("Frequency"))
 )
 
-#display(q6)
-
-#TODO: add chart of the frequency distribution
+display(q6)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.8) Sleep analysys
-# MAGIC Analyzing the average total minutes asleep to understand the typical sleep duration.<br>
-# MAGIC Looking for trends or patterns in sleep data over time.
+# MAGIC The table above tells us how the frequency of METs is distributed in the data set, while the next graph is just a graphical representation of it.<br>As we can see that the greatest majority of the activities performed by the users have the same intensity, which correspond to a MET around 10.
+
+# COMMAND ----------
+
+q6Tmp = q6.toPandas()
+
+'''
+#barchart
+x = q6Tmp.METs
+y = q6Tmp.Frequency
+fig, ax = plt.subplots()
+ax.bar(x, y)
+ax.set_xlabel('Frequency')
+ax.set_ylabel('Count of METs')
+'''
+
+'''
+boxplot
+plt.figure(figsize=(8, 6))
+plt.boxplot(q6Tmp['Frequency'], vert=True)
+plt.xlabel('Frequency')
+plt.title('Frequency Distributiom')
+'''
+
+x = q6Tmp.METs
+y = q6Tmp.Frequency
+
+# Fit a linear regression model
+model = LinearRegression()
+model.fit(x.values.reshape(-1, 1), y)
+
+# Predict y values using the model
+y_pred = model.predict(x.values.reshape(-1, 1))
+
+#set size
+plt.figure(figsize=(15, 5))
+plt.tight_layout()
+
+# Plot the scatterplot
+plt.scatter(x, y, color=color_blu, alpha=0.5)
+
+# Plot the line of best fit
+plt.plot(x, y_pred, color=color_red, linewidth=2, label='Regression')
+
+plt.title('METs Frequency Diatribution')
+plt.xlabel('METs')
+plt.ylabel('Frequency')
+plt.grid(True)
+plt.show()
+
+plt.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##4.7) Sleep analysys
+# MAGIC Through analysis of the mean total minutes asleep, we gain insights into the typical duration and sleep pattern of our user over time.
 
 # COMMAND ----------
 
@@ -688,6 +709,7 @@ sleepmean = dailySleepFormatted2\
 sleepmean = sleepmean.orderBy("WeekDayN")
 
 #display(sleepmean)
+sleepmean.printSchema()
 
 sleepmeanTmp = sleepmean.toPandas()
 
@@ -729,8 +751,8 @@ display(q7)
 # COMMAND ----------
 
 # MAGIC %md 
-# MAGIC ##4.9) User classification
-# MAGIC Segmenting users based on their activity and sleep patterns. This can help identify different user groups with distinct behaviors.
+# MAGIC ##4.8) User classification
+# MAGIC Segmenting users based on their activity and sleep patterns. In this way we can identify different user groups with distinct behaviors.
 
 # COMMAND ----------
 
@@ -745,9 +767,9 @@ userSegments = activityAndSleep\
 #display(userSegments)
 
 q8 = userSegments.withColumn("UserSegment",
-    when((col("AvgSteps")  >= 10000) & (col("AvgMinutesAsleep") >= 420), 'More Active, Good Sleep')
+    when((col("AvgSteps")  >= 10000) & (col("AvgMinutesAsleep") >= 420), 'More Active, More Sleep')
     .when((col("AvgSteps") >= 10000) & (col("AvgMinutesAsleep") < 420),  'More Active, Less Sleep')
-    .when((col("AvgSteps") < 10000)  & (col("AvgMinutesAsleep") >= 420), 'Less Active, Good Sleep')
+    .when((col("AvgSteps") < 10000)  & (col("AvgMinutesAsleep") >= 420), 'Less Active, More Sleep')
     .when((col("AvgSteps") < 10000)  & (col("AvgMinutesAsleep") < 420),  'Less Active, Less Sleep')
     .otherwise("Other"))
 
@@ -797,11 +819,13 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC - User segmentation involves categorizing users based on certain characteristics or behaviors. In this case, we want to segment users based on their activity and sleep patterns.
-# MAGIC - Less Active, Less Sleep: Users in this group have lower average steps, indicating a less active lifestyle.They also have a shorter average sleep duration (around 418 minutes).These users might benefit from interventions to increase physical activity and improve sleep habits.
-# MAGIC - Active, Less Sleep:Users in this group are more active, as evidenced by a higher average step count.However, they still have a relatively shorter average sleep duration (around 418 minutes).Strategies to maintain activity levels while improving sleep quality could be explored for this group.
-# MAGIC - Less Active, Good Sleep:This group has lower average steps but a longer and presumably better sleep duration (around 435 minutes).While these users are less active, they seem to prioritize and achieve better sleep.Understanding factors contributing to their good sleep could be valuable.
-# MAGIC - These insights provide a high-level understanding of user behavior, allowing for targeted interventions or personalized recommendations.
+# MAGIC The below chart show the user segmentation:
+# MAGIC - More Active, More Sleep: Users in this group are both very active and good sleepers, as evidenced by a higher average step count and high minutes in bed.
+# MAGIC - More Active, Less Sleep: Users in this group are more active, as evidenced by a higher average step count. However, they still have a relatively shorter average sleep duration.
+# MAGIC - Less Active, Less Sleep: Users in this group have lower average steps, indicating a less active lifestyle. They also have a shorter average sleep duration.
+# MAGIC - Less Active, More Sleep: This group has lower average steps but a longer and presumably better sleep duration. While these users are less active, they seem to prioritize and achieve better sleep.
+# MAGIC
+# MAGIC *Note that from the data we weren't able to find the segment "More Active, More Sleep"
 
 # COMMAND ----------
 
@@ -824,7 +848,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.10) Sleep and Calories Comparison
+# MAGIC ##4.9) Sleep and Calories Comparison
 
 # COMMAND ----------
 
@@ -872,14 +896,12 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC - The average sleep duration varies, indicating diverse sleep patterns among users.
-# MAGIC - Users with higher activity levels or longer awake periods may tend to burn more calories.
-# MAGIC - Some users have longer sleep durations but spend less time in bed, while others may have shorter sleep durations with more time in bed
+# MAGIC The chart shows that the average sleep duration varies, which indicates diverse sleep patterns among users. Users with higher activity levels or longer awake periods may tend to burn more calories. Some users have longer sleep durations but spend less time in bed, while others may have shorter sleep durations with more time in bed.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.11) Heartrate and Calories
+# MAGIC ##4.10) Heartrate and Calories
 
 # COMMAND ----------
 
@@ -1045,53 +1067,28 @@ display(P3_1)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.12) Average METs for single user (?)
-
-# COMMAND ----------
-
-#display(minuteMETs)
-
-minuteMETs = minuteMETsFormatted.drop("Minute")
-grouped_df = minuteMETsFormatted.groupBy("Id","Date")
-
-q10 = grouped_df.agg(avg(col("METs")).alias("AvgMETs"))
-q10 = q10.orderBy("Id","Date")
-q10 = q10.filter("Id == '1624580081'")
-
-display(q10)
-
-# COMMAND ----------
-
-# MAGIC %md
 # MAGIC #5) Conclusion
 # MAGIC
-# MAGIC In this comprehensive analysis of Bellabeat's smart device usage data, we delved into various aspects of user behavior, ranging from daily activity patterns to sleep metrics. The analysis aimed to provide actionable insights for Bellabeat's marketing strategy by understanding trends and identifying potential opportunities for growth.
+# MAGIC In this comprehensive analysis of device usage data, we delved into various aspects of user behavior, ranging from daily activity patterns to sleep metrics. The analysis aimed to look for trends and identifying potential pattern recognition amonng users.
 # MAGIC
-# MAGIC Here are the key findings and recommendations:
+# MAGIC 1. Daily Activity Patterns:
+# MAGIC     - Activity Distribution Over the Day: Users tend to be more active during the morning and early afternoon, with a peak in steps between 8:00 AM and 7:00 PM.Understanding peak activity hours allows for targeted engagement, promotions, or notifications during these times.
 # MAGIC
-# MAGIC Daily Activity Patterns:
-# MAGIC Activity Distribution Over the Day: Users tend to be more active during the morning and early afternoon, with a peak in steps between 8:00 AM and 7:00 PM.Understanding peak activity hours allows for targeted engagement, promotions, or notifications during these times.
+# MAGIC     - Metrics Comparison Over Time: The distribution of metrics such as steps, distance, and calories burned varies over time.Identifying trends or unusual events in these metrics can help understand users routines and tailor marketing strategies accordingly.
 # MAGIC
-# MAGIC Metrics Comparison Over Time: The distribution of metrics such as steps, distance, and calories burned varies over time.Identifying trends or unusual events in these metrics can help understand users routines and tailor marketing strategies accordingly.
+# MAGIC 2. Intensity of Activities:
+# MAGIC     
+# MAGIC     - Categorization by Intensity: Users were categorized into intensity levels based on average METs.All users were classified as engaging in "Vigorous Intensity" activities.Tailoring recommendations, features, and content for users involved in vigorous activities could enhance engagement.
 # MAGIC
-# MAGIC Intensity of Activities:
-# MAGIC Categorization by Intensity: Users were categorized into intensity levels based on average METs.All users were classified as engaging in "Vigorous Intensity" activities.Tailoring recommendations, features, and content for users involved in vigorous activities could enhance engagement.
+# MAGIC     - METs Distribution: Exploring the distribution of METs provided insights into the range of activity intensities recorded by the devices.Bellabeat can leverage METs data to categorize activities and offer personalized recommendations for users.
 # MAGIC
-# MAGIC METs Distribution: Exploring the distribution of METs provided insights into the range of activity intensities recorded by the devices.Bellabeat can leverage METs data to categorize activities and offer personalized recommendations for users.
+# MAGIC 3. Sleep Patterns:
 # MAGIC
-# MAGIC Sleep Patterns:
-# MAGIC Identifying Sleep Patterns: Analyzing sleep data revealed average sleep durations for each day of the week.Understanding day-to-day variability in sleep patterns can help tailor wellness features or recommendations.
+# MAGIC     - Identifying Sleep Patterns: Analyzing sleep data revealed average sleep durations for each day of the week.Understanding day-to-day variability in sleep patterns can help tailor wellness features or recommendations.
 # MAGIC
-# MAGIC User Segmentation: Users were segmented based on their activity and sleep patterns.Segments include "Less Active, Less Sleep," "Active, Less Sleep," and more, providing insights for targeted interventions.
+# MAGIC     - User Segmentation: Users were segmented based on their activity and sleep patterns.Segments include "Less Active, Less Sleep," "Active, Less Sleep," and more, providing insights for targeted interventions.
 # MAGIC
-# MAGIC Sleep and Calories Comparison: Examining the relationship between sleep metrics and calories burned highlighted variations in sleep duration and calories expended during activities.
+# MAGIC     - Sleep and Calories Comparison: Examining the relationship between sleep metrics and calories burned highlighted variations in sleep duration and calories expended during activities.
 # MAGIC
-# MAGIC Heartrate and Calories: In some individuals, high heartrate does not always mean higher calorie consumption. We should strive to recommend tailored training for each user, based on their own metabolism, to maximize calorie expenditure.
-# MAGIC
-# MAGIC Recommendations:
-# MAGIC Tailor marketing strategies and product features based on the diverse user profiles identified in the analysis.
-# MAGIC Provide specialized content, challenges, or workouts for users with specific activity patterns or intensity levels.
-# MAGIC Use insights into peak activity hours to optimize engagement strategies, promotions, or notifications during high-activity periods.
-# MAGIC Leverage insights into sleep patterns to enhance sleep-related features or offer personalized recommendations for better sleep.
-# MAGIC Foster a sense of community among users with similar activity levels or goals through forums, groups, or challenges.
-# MAGIC Ensure seamless integration with wearables during vigorous activities to capture accurate and real-time data.
+# MAGIC 4. Heartrate and Calories: 
+# MAGIC     - In some individuals, high heartrate does not always mean higher calorie consumption. We should strive to recommend tailored training for each user, based on their own metabolism, to maximize calorie expenditure.
