@@ -5,9 +5,15 @@
 
 # MAGIC %md
 # MAGIC ## 1.1) Description
-# MAGIC This dataset includes health data about 30 people, such as daily activity, heart rate, sleep monitoring etc., tracked by their FitBit over a period of 30 days (from 12/04/2016 to 12/05/2016).
+# MAGIC This dataset includes health data about 30 people, such as daily activity, heart rate, sleep monitoring etc., tracked by their FitBit devices over a period of 30 days (from 12/04/2016 to 12/05/2016).
 # MAGIC
-# MAGIC Our goal is to analyze the athletes' routine to recognize patterns and trends in their activities.
+# MAGIC Our goal is to analyze the athletes' routine in order to recognize patterns and trends in their activities.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##1.2) Dateset
+# MAGIC https://www.kaggle.com/datasets/arashnic/fitbit/data
 
 # COMMAND ----------
 
@@ -80,6 +86,13 @@ hourlySteps = spark.read \
     .option("sep", ",") \
     .load("/FileStore/tables/hourlySteps.csv")
 
+hourlyCalories = spark.read \
+    .format("csv") \
+    .option("inferSchema", inferSchema) \
+    .option("header", "true") \
+    .option("sep", ",") \
+    .load("/FileStore/tables/hourlyCalories.csv")
+
 # COMMAND ----------
 
 # MAGIC %md #3) Data Cleaning
@@ -92,7 +105,7 @@ hourlySteps = spark.read \
 # COMMAND ----------
 
 from pyspark.sql.types import DoubleType
-from pyspark.sql.functions import col, dayofweek, date_format, round, udf, count, to_date, split,to_timestamp, avg, sum, when
+from pyspark.sql.functions import col, dayofweek, date_format, round, udf, count, to_date, split,to_timestamp, avg, sum, when, hour
 from pyspark.sql.types import DateType
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -243,7 +256,33 @@ display(hourlyStepsFormatted)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.5) Daily Intensity
+# MAGIC ##3.5) Hourly Calories
+
+# COMMAND ----------
+
+# Convert the string into a timestamp
+hourlyCaloriesFormatted = hourlyCalories\
+    .withColumn("ActivityHour", to_timestamp("ActivityHour", "M/d/yyyy h:mm:ss a"))
+
+# Format the timestamp into the desired format
+hourlyCaloriesFormatted = hourlyCaloriesFormatted\
+    .withColumn("ActivityHour", date_format("ActivityHour", "M/d/yyyy HH:mm"))
+
+# Split the 'ActivityHour' column into two columns: 'Day' and 'Time'
+hourlyCaloriesFormatted = hourlyCaloriesFormatted\
+    .withColumn("Day", split(col("ActivityHour"), " ")[0])\
+    .withColumn("Hour", split(col("ActivityHour"), " ")[1])
+
+hourlyCaloriesFormatted = hourlyCaloriesFormatted.drop('ActivityHour')
+
+hourlyCaloriesFormatted = hourlyCaloriesFormatted.select('Id','Day','Hour','Calories')
+
+display(hourlyCaloriesFormatted)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##3.6) Daily Intensity
 
 # COMMAND ----------
 
@@ -266,7 +305,7 @@ tmp = dailyActivityFormatted.alias('A')\
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.6) Other 
+# MAGIC ##3.7) Other 
 
 # COMMAND ----------
 
@@ -280,9 +319,17 @@ users = dailyActivity.select("Id").distinct()
 
 # COMMAND ----------
 
+# Global variables
+
+color_blu = '#205bc9'
+color_red = '#eb4034'
+color_green = '#0c661d'
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ##4.1) Daily Average Analysis
-# MAGIC With this analysis we wanted to calculate, for each day, the average values for the main metrics:
+# MAGIC With this analysis we want to calculate, for each day, the average values for the main metrics:
 # MAGIC - average steps
 # MAGIC - average distance
 # MAGIC - average calories (burned)
@@ -309,42 +356,83 @@ display(q1)
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC This chart shows the average steps per day
+q1Tmp2 = q1.toPandas()
+
+x = q1Tmp2.WeekDay
+y1 = q1Tmp2.AvgSteps
+y2 = q1Tmp2.AvgDistance
+y3 = q1Tmp2.AvgCalories
+
+bar_width = 0.25
+
+# Set the position of each group of bars on the x-axis
+r1 = np.arange(len(x))
+r2 = [x + bar_width for x in r1]
+r3 = [x + bar_width for x in r2]
+
+# Set the figure size
+plt.figure(figsize=(15, 5))
+
+# Plot the bars
+plt.bar(r1, y1, color=color_blu, width=bar_width, label='AvgSteps')
+#plt.bar(r2, y2, color='g', width=bar_width, edgecolor='grey', label='AvgDistance')
+plt.bar(r3, y3, color=color_red, width=bar_width, label='AvgCalories')
+
+# Set labels and title
+plt.xlabel('WeekDay', fontweight='bold')
+plt.xticks([r + bar_width for r in range(len(x))], x)
+plt.ylabel('Values', fontweight='bold')
+plt.title('Daily Average Analysys')
+
+plt.legend()
+plt.show()
 
 # COMMAND ----------
 
-q1Tmp = q1.toPandas()
+# MAGIC %md
+# MAGIC As we can see from this chart the average steps is almost the same per each day, as for the amount of calories burned.
 
-x = q1Tmp.WeekDay
-y1 = q1Tmp.AvgSteps
-y2 = q1Tmp.AvgDistance
-y3 = q1Tmp.AvgCalories
+# COMMAND ----------
 
-fig, ax = plt.subplots(figsize=(15, 5))
+# MAGIC %md
+# MAGIC During which hour of the day were the more calories burned?<br>
+# MAGIC It provides insights into how users engage with their devices over time.
 
-ax.bar(x, y1)
-#ax.bar(x, y2)
-#ax.bar(x, y3)
+# COMMAND ----------
 
-ax.set_xlabel('Days')
-ax.set_ylabel('Steps')
+hourlyCaloriesFormatted2 = hourlyCaloriesFormatted\
+  .groupBy(hour("Hour"))\
+  .agg({"Calories": "avg"})\
+  .withColumnRenamed("avg(Calories)", "AvgCalories")\
+  .withColumnRenamed("hour(Hour)", "Hour")\
+  .orderBy('Hour')
+
+#display(hourlyCaloriesFormatted2)
+
+hourlyCaloriesFormattedTmp = hourlyCaloriesFormatted2.toPandas()
+
+hours = hourlyCaloriesFormattedTmp.Hour
+avg_calories = hourlyCaloriesFormattedTmp.AvgCalories
+
+plt.figure(figsize=(15, 5))
+
+plt.bar(hours, avg_calories, color=color_blu)
+
+plt.xlabel('Hours')
+plt.ylabel('Average Calories')
+plt.title('Average Calories by Hour')
 
 plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC During which hour of the day were the more calories burned?
-
-# COMMAND ----------
-
-#TODO: make a chart
+# MAGIC As we can see from the chart, the most desired time people are active throughout the day is between 8:00 AM - 7:00PM
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.2) Compare Different Metrics
+# MAGIC ##4.2) Compare Different Metrics
 # MAGIC With this analysis we wanted to calculate, for each users, the duration of each activity with its relative burned calories
 
 # COMMAND ----------
@@ -366,11 +454,10 @@ display(q2)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.3) Activity Time and Calories Burned
+# MAGIC ##4.3) Activity Time and Calories Burned
 
 # COMMAND ----------
 
-# Scatter plot between TotalCalories and TotalSteps
 q2Tmp = q2.toPandas()
 
 x = q2Tmp.TotalCalories
@@ -385,15 +472,17 @@ model.fit(x.values.reshape(-1, 1), y)
 y_pred = model.predict(x.values.reshape(-1, 1))
 
 # Plot the scatterplot
-plt.scatter(x, y, color='blue', alpha=0.5)
+plt.scatter(x, y, color=color_blu, alpha=0.5)
 
 # Plot the line of best fit
-plt.plot(x, y_pred, color='red', linewidth=2, label='Regression')
+plt.plot(x, y_pred, color=color_red, linewidth=2, label='Regression')
 
 plt.title('TotalCalories VS TotalSteps')
 plt.xlabel('TotalCalories')
 plt.ylabel('TotalSteps')
+
 plt.grid()
+
 plt.show()
 
 # COMMAND ----------
@@ -404,7 +493,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.4) Average Steps Per Hours
+# MAGIC ##4.4) Average Steps Per Hours
 
 # COMMAND ----------
 
@@ -444,7 +533,8 @@ plt.show()
 
 # COMMAND ----------
 
-# MAGIC %md ##3.5) Metrics Comparison Over Time
+# MAGIC %md
+# MAGIC ##4.5) Metrics Comparison Over Time
 # MAGIC With this analysis, we wanted to understand if there are patterns or if certain metrics are more influential in different periods.
 
 # COMMAND ----------
@@ -470,9 +560,9 @@ y3 = q4.avg_calories
 plt.figure(figsize=(15, 3))
 plt.tight_layout()
   
-graph1 = plt.plot(x, y1, label = "Steps")
-graph2 = plt.plot(x, y2, label = "Distance")
-graph3 = plt.plot(x, y3, label = "Calories")
+graph1 = plt.plot(x, y1, label = "Steps",color=color_blu)
+graph2 = plt.plot(x, y2, label = "Distance",color=color_red)
+graph3 = plt.plot(x, y3, label = "Calories",color=color_green)
 plt.xticks(rotation=90)
 ax = plt.gca()
 
@@ -488,7 +578,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.6) Categorize users into different physical activity levels
+# MAGIC ##4.6) Categorize users into different physical activity levels
 
 # COMMAND ----------
 
@@ -523,7 +613,7 @@ q5 = (
     )
 )
 
-#display(q5)
+display(q5)
 
 q5Tmp = q5\
     .groupBy('IntensityLevel')\
@@ -537,32 +627,20 @@ sizes = q5Tmp['AvgMETs']
 fig, ax = plt.subplots()
 ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
 ax.axis('equal')  
-#plt.title('User Segments')
+plt.title('User Segments')
 
 plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The output shows the average METs and the corresponding intensity category for each user.
-# MAGIC
-# MAGIC In this case, most users are categorized as "Medium" based on the provided threshold values.
-# MAGIC
-# MAGIC For users categorized under "Vigorous Intensity," Bellabeat could consider providing tailored recommendations and features to support and enhance their vigorous intensity activities.
-# MAGIC
-# MAGIC Users can be offered:
-# MAGIC - Specialized Workouts: Offer workout programs or sessions specifically designed for vigorous intensity exercises. This could include high-intensity interval training (HIIT) routines, advanced cardio workouts, and strength training programs.
-# MAGIC - Performance Tracking: Enhance the app's tracking capabilities for vigorous activities. Provide detailed insights into users' performance during high-intensity exercises.
-# MAGIC - Motivational Content: Create motivational content and challenges targeted at users engaging in vigorous activities.
-# MAGIC - Community Engagement: Foster a sense of community among users with similar activity levels. This could include forums, groups, or challenges specifically for those engaging in vigorous intensity workouts, allowing users to share experiences and tips.
-# MAGIC - Health and Safety Tips: Offer health and safety tips related to vigorous exercise. Provide information on proper warm-ups, cool-downs, hydration, and recovery strategies to ensure users stay safe and maximize the benefits of their workouts.
-# MAGIC - Integration with Wearables: If users are using Bellabeat's smart wellness products during vigorous activities, ensure seamless integration with wearables to capture accurate and real-time data. This can enhance the overall user experience.
-# MAGIC - Personalized Recommendations: Leverage the collected data to provide personalized recommendations for users engaging in vigorous intensity activities. This could include suggested workout routines, recovery strategies, and nutritional guidance tailored to individual preferences and goals.
+# MAGIC The output shows the average METs and the corresponding intensity level for each user.
+# MAGIC As we can see, most users are categorized as "Medium", which mean their level of training is above the the world medium.
 
 # COMMAND ----------
 
 # MAGIC %md 
-# MAGIC ##3.7) Intensity of Activities
+# MAGIC ##4.7) Intensity of Activities
 # MAGIC Exploring the distribution of METs to understand the range of activity intensities recorded by the devices.
 # MAGIC Identifying peak MET values and correlating them with specific activities or time periods.
 
@@ -577,12 +655,12 @@ q6 = (
 
 #display(q6)
 
-#TODO: add chart
+#TODO: add chart of the frequency distribution
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.8) Sleep analysys
+# MAGIC ##4.8) Sleep analysys
 # MAGIC Analyzing the average total minutes asleep to understand the typical sleep duration.<br>
 # MAGIC Looking for trends or patterns in sleep data over time.
 
@@ -639,7 +717,8 @@ display(q7)
 
 # COMMAND ----------
 
-# MAGIC %md ##3.9) User classification
+# MAGIC %md 
+# MAGIC ##4.9) User classification
 # MAGIC Segmenting users based on their activity and sleep patterns. This can help identify different user groups with distinct behaviors.
 
 # COMMAND ----------
@@ -650,16 +729,13 @@ activityAndSleep = dailyActivityFormatted.alias('A')\
 # Group by Id and calculate average TotalSteps and TotalMinutesAsleep
 userSegments = activityAndSleep\
     .groupBy("A.Id")\
-    .agg(avg("TotalSteps").alias("AvgSteps"), avg("TotalMinutesAsleep").alias("AvgMinutesAsleep"))\
-    #.withColumn("AvgSteps", round(col("AvgSteps"), 2))\
-    #.withColumn("AvgMinutesAsleep", round(col("AvgMinutesAsleep"), 2))
+    .agg(avg("TotalSteps").alias("AvgSteps"), avg("TotalMinutesAsleep").alias("AvgMinutesAsleep"))
 
 #display(userSegments)
 
-# Apply the conditions using 'when' function and create a new column 'UserSegment'
 q8 = userSegments.withColumn("UserSegment",
-    when((col("AvgSteps") >= 10000) & (col("AvgMinutesAsleep") >= 420), 'Active Sleepers')
-    .when((col("AvgSteps") >= 10000) & (col("AvgMinutesAsleep") < 420),  'Active, Less Sleep')
+    when((col("AvgSteps")  >= 10000) & (col("AvgMinutesAsleep") >= 420), 'More Active, Good Sleep')
+    .when((col("AvgSteps") >= 10000) & (col("AvgMinutesAsleep") < 420),  'More Active, Less Sleep')
     .when((col("AvgSteps") < 10000)  & (col("AvgMinutesAsleep") >= 420), 'Less Active, Good Sleep')
     .when((col("AvgSteps") < 10000)  & (col("AvgMinutesAsleep") < 420),  'Less Active, Less Sleep')
     .otherwise("Other"))
@@ -730,14 +806,14 @@ sizes = q8Tmp['AvgMinutesAsleep']
 fig, ax = plt.subplots()
 ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
 ax.axis('equal')  
-#plt.title('User Segments')
+plt.title('User classification')
 
 plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.10) Sleep and Calories Comparison
+# MAGIC ##4.10) Sleep and Calories Comparison
 
 # COMMAND ----------
 
@@ -771,10 +847,10 @@ plt.figure(figsize=(15, 5))
 plt.tight_layout()
 
 # Plot the scatterplot
-plt.scatter(x, y, color='blue', alpha=0.5)
+plt.scatter(x, y, color=color_blu, alpha=0.5)
 
 # Plot the line of best fit
-plt.plot(x, y_pred, color='red', linewidth=2, label='Regression')
+plt.plot(x, y_pred, color=color_red, linewidth=2, label='Regression')
 
 plt.title('TotalMinutesAsleep vs Calories')
 plt.xlabel('Calories')
@@ -792,7 +868,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.11) Thomas analysys
+# MAGIC ##4.11) Thomas analysys
 
 # COMMAND ----------
 
@@ -941,7 +1017,7 @@ display(P3_1)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.12) Average METs for single user (?)
+# MAGIC ##4.12) Average METs for single user (?)
 
 # COMMAND ----------
 
@@ -989,9 +1065,3 @@ display(q10)
 # MAGIC Leverage insights into sleep patterns to enhance sleep-related features or offer personalized recommendations for better sleep.
 # MAGIC Foster a sense of community among users with similar activity levels or goals through forums, groups, or challenges.
 # MAGIC Ensure seamless integration with wearables during vigorous activities to capture accurate and real-time data.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC #6) Reference (to delete)
-# MAGIC https://www.kaggle.com/code/deepalisukhdeve/data-driven-wellness#Analyze
