@@ -1071,24 +1071,18 @@ display(P3_1)
 # MAGIC
 # MAGIC In this comprehensive analysis of device usage data, we delved into various aspects of user behavior, ranging from daily activity patterns to sleep metrics. The analysis aimed to look for trends and identifying potential pattern recognition amonng users.
 # MAGIC
-# MAGIC 1. Daily Activity Patterns:
-# MAGIC     - Activity Distribution Over the Day: Users tend to be more active during the morning and early afternoon, with a peak in steps between 8:00 AM and 7:00 PM.Understanding peak activity hours allows for targeted engagement, promotions, or notifications during these times.
+# MAGIC - Daily Activity Patterns:
+# MAGIC     - Activity Distribution Over the Day: Users tend to be more active during the morning and early afternoon, with a peak in steps between 8:00 AM and 7:00 PM.
+# MAGIC     - Metrics Comparison Over Time: The distribution of metrics such as steps, distance, and calories burned varies over time.
 # MAGIC
-# MAGIC     - Metrics Comparison Over Time: The distribution of metrics such as steps, distance, and calories burned varies over time.Identifying trends or unusual events in these metrics can help understand users routines and tailor marketing strategies accordingly.
+# MAGIC - Intensity of Activities:
+# MAGIC     - Users Classification: Users were categorized into intensity levels based on average METs. Most users were classified as engaging in "Medium Intensity" activities.
+# MAGIC     - METs Distribution: Exploring the distribution of METs provided insights into the range of activity intensities recorded by the devices.
 # MAGIC
-# MAGIC 2. Intensity of Activities:
-# MAGIC     
-# MAGIC     - Categorization by Intensity: Users were categorized into intensity levels based on average METs.All users were classified as engaging in "Vigorous Intensity" activities.Tailoring recommendations, features, and content for users involved in vigorous activities could enhance engagement.
-# MAGIC
-# MAGIC     - METs Distribution: Exploring the distribution of METs provided insights into the range of activity intensities recorded by the devices.Bellabeat can leverage METs data to categorize activities and offer personalized recommendations for users.
-# MAGIC
-# MAGIC 3. Sleep Patterns:
-# MAGIC
-# MAGIC     - Identifying Sleep Patterns: Analyzing sleep data revealed average sleep durations for each day of the week.Understanding day-to-day variability in sleep patterns can help tailor wellness features or recommendations.
-# MAGIC
-# MAGIC     - User Segmentation: Users were segmented based on their activity and sleep patterns.Segments include "Less Active, Less Sleep," "Active, Less Sleep," and more, providing insights for targeted interventions.
-# MAGIC
+# MAGIC - Sleep Patterns:
+# MAGIC     - Identifying Sleep Patterns: Analyzing sleep data revealed average sleep durations for each day of the week.
+# MAGIC     - User Segmentation: Users were segmented based on their activity and sleep patterns. Segments include "Less Active, Less Sleep", "Less Active, More Sleep", "More Active, More Sleep" and "More Active, Less Sleep", identifying the "Less Active, Less Sleep" segment as the most popular.
 # MAGIC     - Sleep and Calories Comparison: Examining the relationship between sleep metrics and calories burned highlighted variations in sleep duration and calories expended during activities.
 # MAGIC
-# MAGIC 4. Heartrate and Calories: 
+# MAGIC - Heartrate and Calories: 
 # MAGIC     - In some individuals, high heartrate does not always mean higher calorie consumption. We should strive to recommend tailored training for each user, based on their own metabolism, to maximize calorie expenditure.
