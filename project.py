@@ -562,7 +562,7 @@ plt.show()
 # MAGIC %md
 # MAGIC ##4.5) Users classification
 # MAGIC
-# MAGIC In this anylysy we want to classify users based on their activity level, by analyzing the intensity of physical activities and correlate it with other metrics like steps, distance, or calories burned. To do so we are using the dataframe minuteMETsFormatted.
+# MAGIC In this analysis we want to classify users based on their activity level, by analyzing the intensity of physical activities and correlate it with other metrics like steps, distance, or calories burned. To do so we are using the dataframe minuteMETsFormatted.
 # MAGIC
 # MAGIC What are METs?
 # MAGIC - METs are a measure of the energy expenditure of physical activities.
