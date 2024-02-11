@@ -17,9 +17,17 @@
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ##1.3) GitHub
+# MAGIC https://github.com/GianF67/cloud-technologies-project.git
+
+# COMMAND ----------
+
 # MAGIC %md #2) Import datasets
 
 # COMMAND ----------
+
+# IMPORTANT: Before run all these commands make sure that you have imported all necessary .csv files as DBFS (check the ds directory)
 
 inferSchema = "true"
 
@@ -65,13 +73,6 @@ dailySleep = spark.read \
     .option("sep", ",") \
     .load("/FileStore/tables/dailySleep.csv")
 
-weightLogInfo = spark.read \
-    .format("csv") \
-    .option("inferSchema", inferSchema) \
-    .option("header", "true") \
-    .option("sep", ",") \
-    .load("/FileStore/tables/weightLogInfo.csv")
-
 minuteMETs = spark.read \
     .format("csv") \
     .option("inferSchema", inferSchema) \
@@ -100,7 +101,7 @@ hourlyCalories = spark.read \
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##3.0) Libraries
+# MAGIC ##3.0) Import libraries
 
 # COMMAND ----------
 
@@ -129,13 +130,18 @@ sum_udf=udf(sumDistances,DoubleType())
 
 dailyActivityFormatted = dailyActivity
 
+'''
+- Cast TotalSteps as int,
+- Create two new columns 'WeekDay' and 'WeekDayN' as date
+- Cast ActivityDate as date and then rename it as Date
+'''
 dailyActivityFormatted = dailyActivityFormatted\
     .withColumn("TotalSteps", col("TotalSteps").cast("int"))\
     .withColumn("WeekDayN", dayofweek("ActivityDate"))\
     .withColumn("WeekDay", date_format(col("ActivityDate"), "E"))\
     .withColumnRenamed('ActivityDate','Date')    
 
-# Creates new column: SumOfDistances
+# Create a new column 'SumOfDistances'
 dailyActivityFormatted = dailyActivityFormatted.alias('A')\
     .select(\
         dailyActivityFormatted.Id,\
@@ -187,8 +193,6 @@ print("Duplicates:", result_df.count())
 
 # MAGIC %md
 # MAGIC ##3.2) Minute METs
-# MAGIC MET (Metabolic Equivalent of Task) is a physiological measure expressing the energy cost of physical activities.<br>
-# MAGIC MET values are often used to estimate calorie expenditure during physical activities.
 
 # COMMAND ----------
 
@@ -213,7 +217,7 @@ dailySleepFormatted = dailySleep
 dailySleepFormatted = dailySleepFormatted\
     .withColumn("SleepDay", split(dailySleep.SleepDay, " ")[0])
 
-# Add the new columns 'WeekDay' and 'WeekDayN'
+# Add two new columns 'WeekDay' and 'WeekDayN'
 dailySleepFormatted = dailySleepFormatted\
     .withColumn("SleepDay", to_date(dailySleepFormatted.SleepDay, "M/d/yyyy").cast(DateType()))\
     .withColumn("WeekDayN", dayofweek("SleepDay"))\
@@ -231,8 +235,10 @@ display(dailySleepFormatted)
 
 # COMMAND ----------
 
-# Convert the string into a timestamp
-hourlyStepsFormatted = hourlySteps\
+hourlyStepsFormatted = hourlySteps
+
+# Cast ActivityHour from string to timestamp
+hourlyStepsFormatted = hourlyStepsFormatted\
     .withColumn("ActivityHour", to_timestamp("ActivityHour", "M/d/yyyy h:mm:ss a"))
 
 # Format the timestamp into the desired format
@@ -273,8 +279,10 @@ hourlyCaloriesFormatted = hourlyCaloriesFormatted\
     .withColumn("Day", split(col("ActivityHour"), " ")[0])\
     .withColumn("Hour", split(col("ActivityHour"), " ")[1])
 
+# Delete unecessary columns
 hourlyCaloriesFormatted = hourlyCaloriesFormatted.drop('ActivityHour')
 
+# Select relevant columns
 hourlyCaloriesFormatted = hourlyCaloriesFormatted.select('Id','Day','Hour','Calories')
 
 display(hourlyCaloriesFormatted)
@@ -286,21 +294,13 @@ display(hourlyCaloriesFormatted)
 
 # COMMAND ----------
 
-dailyIntensitiesFormatted = dailyIntensities\
+dailyIntensitiesFormatted = dailyIntensities
+
+dailyIntensitiesFormatted = dailyIntensitiesFormatted\
     .withColumnRenamed('ActivityDay','Date')\
     .orderBy('Id','Date')
 
 display(dailyIntensitiesFormatted)
-#display(dailyActivityFormatted)
-
-#print("dailyActivity:",dailyActivityFormatted.count())
-#print("dailyIntensity:",dailyIntensitiesFormatted.count())
-
-#TODO: to fix 
-tmp = dailyActivityFormatted.alias('A')\
-    .join(dailyIntensitiesFormatted.alias('I'),("Date"), "inner")
-
-#display(tmp.count())
 
 # COMMAND ----------
 
@@ -329,7 +329,7 @@ color_green = '#0c661d'
 
 # MAGIC %md
 # MAGIC ##4.1) Daily Average Analysis
-# MAGIC With this analysis we want to calculate, for each day, the average values for the main metrics:
+# MAGIC With this analysis we want to calculate, for each day of the week, the average values for the main metrics:
 # MAGIC - average steps
 # MAGIC - average distance
 # MAGIC - average calories (burned)
@@ -383,12 +383,12 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC As we can see from this chart the average steps is almost the same per each day, as for the amount of calories burned.
+# MAGIC As we can see from the above chart the average steps is almost the same per each day, as for the amount of calories burned.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Another interesting analysy is to understand during which hour of the day users burn more calories, providing insights into user engagement with their devices over time.
+# MAGIC Another interesting analysis is to understand during which hour of the day users burn more calories, providing insights into user engagement with their devices over time.
 
 # COMMAND ----------
 
@@ -412,20 +412,20 @@ plt.bar(hours, avg_calories, color=color_blu)
 
 plt.xlabel('Hours')
 plt.ylabel('Average Calories')
-plt.title('Average Calories by Hour')
+plt.title('Average Calories Burned by Hour')
 
 plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC As we can see from the chart, the most desired time people are active throughout the day is between 8:00 and 19:00.
+# MAGIC As we can see from the chart, the time people want to be active during the day is between 8:00 and 19:00, probably because before 8:00 most people sleep and after 7:00 they prefer to stay at home.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.2) Compare Different Metrics
-# MAGIC With this analysis we wanted to calculate, for each users, the duration of each activity with its relative burned calories
+# MAGIC ##4.2) Different Metrics Comparison
+# MAGIC With this analysis we want to calculate, for each users, the duration of each activity with its relative burned calories.
 
 # COMMAND ----------
 
@@ -446,7 +446,7 @@ display(q2)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The total steps vary significantly across users, ranging from 12000 to 500000,indicating diverse levels of physical activity among users.<br>
+# MAGIC The total steps vary significantly across users, within a range from 12000 to 500000, indicating diverse levels of physical activity among users.<br><br>
 # MAGIC The following chart shows how as the steps increase the number of calories burned also increases.
 
 # COMMAND ----------
@@ -482,7 +482,7 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ##4.3) Average Steps Per Hours
-# MAGIC The average number of steps varies throughout different time intervals of the day, revealing distinct patterns in user activity. <br>
+# MAGIC With this analysis we want to calculate the average steps per hours. We noticed that the average number of steps varies throughout different time intervals of the day, revealing distinct patterns in user activity. <br><br>
 # MAGIC As we can see from the chart, we can identify three intervals:
 # MAGIC 1. Between midnight and 6, there is a decline in the average steps, implying lower activity levels, potentially during sleep.
 # MAGIC 2. Between 6 to 19, indicating heightened activity during the morning hours, likely due to activities like morning walks or commutes, which indicates high level of activities.
@@ -517,7 +517,7 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ##4.4) Metrics Comparison Over Time
-# MAGIC With this analysis, we wanted to understand if there are patterns or if certain metrics are more influential in different periods.
+# MAGIC With this analysis we want to understand if there are patterns or if certain metrics are more influential in different periods of the months.
 
 # COMMAND ----------
 
@@ -539,7 +539,7 @@ y2 = q4.avg_distance
 y3 = q4.avg_calories
 
 #set size
-plt.figure(figsize=(15, 3))
+plt.figure(figsize=(15, 5))
 plt.tight_layout()
   
 graph1 = plt.plot(x, y1, label = "Steps",color=color_blu)
@@ -554,25 +554,28 @@ ax.set_xticks( [* range(int(ax.get_xticks()[0])-1, int(ax.get_xticks()[-1]), int
 #set y tick density
 ax.set_yticks( [* range(int(ax.get_yticks()[0]), int(ax.get_yticks()[-1])+1, int( (ax.get_yticks()[-1] - ax.get_yticks()[0])/(len(ax.get_yticks())-1) / 2 )) ] )
 
+ax.set_xlabel('Values')
+ax.set_ylabel('Days')
+
 plt.legend() 
 plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.5) Users classification
+# MAGIC ##4.5) Users Classification By Intensity Level
 # MAGIC
-# MAGIC In this analysis we want to classify users based on their activity level, by analyzing the intensity of physical activities and correlate it with other metrics like steps, distance, or calories burned. To do so we are using the dataframe minuteMETsFormatted.
+# MAGIC In this analysis we want to classify users based on their activity level, by analyzing the intensity of physical activities and correlate it with other metrics like steps, distance, and calories burned. To do so we are using the dataframe minuteMETsFormatted.
 # MAGIC
-# MAGIC What are METs?
+# MAGIC First of all, let's define what are METs or Metabolic Equivalent of Task?
 # MAGIC - METs are a measure of the energy expenditure of physical activities.
-# MAGIC - One MET is defined as the energy expenditure at rest, which is equivalent to sitting quietly.
-# MAGIC - In the context of health and fitness tracking, METs are valuable because they provide a standardized way to measure and compare the intensity of different physical activities. Understanding METs allows to categorize activities based on their energy expenditure.
+# MAGIC - One MET is defined as the energy expenditure at rest, which is equivalent of sitting.
+# MAGIC - In the context of health and fitness tracking, METs are valuable because they provide a standardized way to measure and compare the intensity of different physical activities. Understanding METs allows to categorize activities based on their energy expenditure, which is our goal.
 # MAGIC
 # MAGIC Here's how METs we categorized:
 # MAGIC - Low Intensity (1-10 METs): Activities such as sitting, standing, or casual walking.
-# MAGIC - Medium Intensity (11-15 METs): Activities like brisk walking, cycling at a moderate pace, or light housework.
-# MAGIC - High Intensity (16+ METs): Activities that significantly raise your heart rate and breathing, such as running, cycling at a high speed, or intense exercise.
+# MAGIC - Medium Intensity (11-15 METs): Activities like walking/cycling at a moderate pace, or light housework.
+# MAGIC - High Intensity (16+ METs): Activities such as running/cycling at a high speed, or intense exercise (basically all ctivities that significantly raise your heart rate and breathing).
 
 # COMMAND ----------
 
@@ -594,9 +597,9 @@ display(q5)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The above table shows the average METs and the corresponding intensity level for each user.
+# MAGIC The above table shows the average METs and the corresponding intensity level for each user in our dataset.
 # MAGIC
-# MAGIC As we can see from the below chart, most users are categorized as "Medium Intensity", which means that the physical activite required a moderate amount of energy expenditure.
+# MAGIC As we can see from the below chart, most users are categorized as "Medium Intensity", which means that most of the physical activities they did required a moderate amount of energy expenditure.
 
 # COMMAND ----------
 
@@ -612,7 +615,7 @@ sizes = q5Tmp['AvgMETs']
 fig, ax = plt.subplots()
 ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
 ax.axis('equal')  
-plt.title('User Classification')
+plt.title('User Classification by intensity level')
 
 plt.show()
 
@@ -620,8 +623,7 @@ plt.show()
 
 # MAGIC %md 
 # MAGIC ##4.6) Intensity of Activities
-# MAGIC In this analysy we are exploring the distribution of METs to understand the range of activity intensities recorded by the FitBit.
-# MAGIC Identifying peak MET values and correlating them with specific activities or time periods.
+# MAGIC In this analysy we are exploring the distribution of METs to understand the range of activity intensities recorded by the FitBit, and identifying peak MET values in order to correlate them with specific activities or time periods.
 
 # COMMAND ----------
 
@@ -638,7 +640,7 @@ display(q6)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The table above tells us how the frequency of METs is distributed in the data set, while the next graph is just a graphical representation of it.<br>As we can see that the greatest majority of the activities performed by the users have the same intensity, which correspond to a MET around 10.
+# MAGIC The table above tells us how the frequency of METs is distributed in the data set, while the next graph is just a graphical representation of it.<br>As we can see that the greatest majority of the activities performed by the users have the same intensity, which correspond to a MET around 10 which corresponds to activities like light walking or light cycling.
 
 # COMMAND ----------
 
@@ -693,7 +695,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.7) Sleep analysys
+# MAGIC ##4.7) Sleep Analysys
 # MAGIC Through analysis of the mean total minutes asleep, we gain insights into the typical duration and sleep pattern of our user over time.
 
 # COMMAND ----------
@@ -720,6 +722,7 @@ fig, ax = plt.subplots(figsize=(15, 5))
 
 ax.bar(x, y)
 
+plt.title('Daily sleep analysys')
 ax.set_xlabel('Days')
 ax.set_ylabel('Average Minute Asleep')
 
@@ -733,11 +736,9 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Exploring day-to-day variability in both physical activity and sleep metrics. Identifying trends or unusual events that might impact users' routines.
+# MAGIC This analysy explores the day-to-day variability in both physical activity and sleep metrics, with the aim to identify trends or unusual events that might impact users' routines.
 
 # COMMAND ----------
-
-#Sleep Trend Analysis
 
 joined_df = dailyActivityFormatted\
     .join(dailySleepFormatted, dailyActivityFormatted["Date"] == dailySleepFormatted["Date"], "inner")
@@ -751,8 +752,14 @@ display(q7)
 # COMMAND ----------
 
 # MAGIC %md 
-# MAGIC ##4.8) User classification
-# MAGIC Segmenting users based on their activity and sleep patterns. In this way we can identify different user groups with distinct behaviors.
+# MAGIC ##4.8) User Classification By Activities And Sleep
+# MAGIC After having analyzed users daily activities and daily sleep routines, we want to segment them based on these two metrics (activity and sleep), with the aim of identify different user groups with distinct behaviors.
+# MAGIC
+# MAGIC Here how's we classfy user by their activiy and sleep routines:
+# MAGIC - More Active, More Sleep: Users in this group are both very active and good sleepers, as evidenced by a higher average step count and high minutes in bed.
+# MAGIC - More Active, Less Sleep: Users in this group are more active, as evidenced by a higher average step count. However, they still have a relatively shorter average sleep duration.
+# MAGIC - Less Active, Less Sleep: Users in this group have lower average steps, indicating a less active lifestyle. They also have a shorter average sleep duration.
+# MAGIC - Less Active, More Sleep: This group has lower average steps but a longer and presumably better sleep duration. While these users are less active, they seem to prioritize and achieve better sleep.
 
 # COMMAND ----------
 
@@ -779,6 +786,11 @@ display(q8)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC The next charts are representation of the activities and sleep routines.
+
+# COMMAND ----------
+
 q8Tmp = q8.toPandas()
 
 # Map unique IDs to consecutive numbers
@@ -791,7 +803,7 @@ y = q8Tmp.AvgSteps
 x = q8Tmp.Id_Consecutive
 z = q8Tmp.AvgMinutesAsleep
 
-fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(12, 8))
+fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(12, 10))
 
 #set size
 #plt.figure(figsize=(15, 3))
@@ -810,6 +822,7 @@ axs[1].set_xlabel('Id')
 axs[1].legend()
 
 #plt.xticks(rotation=90)
+plt.title('Activities and sleep analysys')
 plt.ylabel('sleep')
 plt.xlabel('Id')
 plt.grid()
@@ -819,13 +832,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The below chart show the user segmentation:
-# MAGIC - More Active, More Sleep: Users in this group are both very active and good sleepers, as evidenced by a higher average step count and high minutes in bed.
-# MAGIC - More Active, Less Sleep: Users in this group are more active, as evidenced by a higher average step count. However, they still have a relatively shorter average sleep duration.
-# MAGIC - Less Active, Less Sleep: Users in this group have lower average steps, indicating a less active lifestyle. They also have a shorter average sleep duration.
-# MAGIC - Less Active, More Sleep: This group has lower average steps but a longer and presumably better sleep duration. While these users are less active, they seem to prioritize and achieve better sleep.
-# MAGIC
-# MAGIC *Note that from the data we weren't able to find the segment "More Active, More Sleep"
+# MAGIC The next is the representation of the users classification based on activities and sleep metrics.
 
 # COMMAND ----------
 
@@ -841,14 +848,20 @@ sizes = q8Tmp['AvgMinutesAsleep']
 fig, ax = plt.subplots()
 ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
 ax.axis('equal')  
-plt.title('User classification')
+plt.title('User classification by activities and sleep routines')
 
 plt.show()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##4.9) Sleep and Calories Comparison
+# MAGIC *Note that from the data we weren't able to find the segment "More Active, More Sleep"
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##4.9) Sleep & Calories Comparison
+# MAGIC With this analysis we want to understand how sleep and calories burned are correlated each other.
 
 # COMMAND ----------
 
@@ -863,7 +876,19 @@ q9 = joined_df\
       sum("Calories").alias("Calories")
     )
 
-#display(q9)
+display(q9)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC If we take a look at the table we can see that some users have shorter sleep durations (TotalMinutesAsleep) but they spend more time in bed (TotalMinuteInBed), which may indicates sleep disorder or troubles in falling asleep.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC The chart shows us that the average sleep duration varies, which indicates diverse sleep patterns among users. For example, we can see that for users with higher activity levels or longer awake periods may tend to burn more calories.
+
+# COMMAND ----------
 
 q9Tmp = q9.toPandas()
 
@@ -887,7 +912,7 @@ plt.scatter(x, y, color=color_blu, alpha=0.5)
 # Plot the line of best fit
 plt.plot(x, y_pred, color=color_red, linewidth=2, label='Regression')
 
-plt.title('TotalMinutesAsleep vs Calories')
+plt.title('Total Minutes Asleep vs Calories Burned')
 plt.xlabel('Calories')
 plt.ylabel('Total Minutes Asleep')
 plt.grid(True)
@@ -896,16 +921,7 @@ plt.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The chart shows that the average sleep duration varies, which indicates diverse sleep patterns among users. Users with higher activity levels or longer awake periods may tend to burn more calories. Some users have longer sleep durations but spend less time in bed, while others may have shorter sleep durations with more time in bed.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ##4.10) Heartrate and Calories
-
-# COMMAND ----------
-
-# MAGIC %md
+# MAGIC ##4.10) Heartrate & Calories
 # MAGIC This analysis is aimed at finding a correlation between heartrate and calorie consumption.
 
 # COMMAND ----------
@@ -928,7 +944,7 @@ display(q11)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC As a sample on the data, I will now focus on four random users
+# MAGIC As a sample on the data, we will now focus on four random users
 
 # COMMAND ----------
 
@@ -1062,27 +1078,30 @@ display(P3_1)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC By comparing the values in the FairlyActiveMinutes to those in the LightlyActiveMinutes and SedentaryMinutes, we can deduce that this user prefers low intensity exercise AND that they burn the most calories doing low intensity activities. This suggests that not all individuals respond the same way to the same workout.
+# MAGIC By comparing the values in the FairlyActiveMinutes to those in the LightlyActiveMinutes and SedentaryMinutes, we can deduce that this user prefers low intensity exercise and that they burn the most calories doing low intensity activities. This suggests that not all individuals respond the same way to the same workout.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC #5) Conclusion
 # MAGIC
-# MAGIC In this comprehensive analysis of device usage data, we delved into various aspects of user behavior, ranging from daily activity patterns to sleep metrics. The analysis aimed to look for trends and identifying potential pattern recognition amonng users.
+# MAGIC In this thorough analysis of FitBit usage data, we delved into various aspects of user behavior, ranging from daily activity patterns to sleep metrics. The analysis aimed to look for trends and identifying potential pattern recognition among users. Here's the patterns we discovered:
 # MAGIC
-# MAGIC - Daily Activity Patterns:
-# MAGIC     - Activity Distribution Over the Day: Users tend to be more active during the morning and early afternoon, with a peak in steps between 8:00 AM and 7:00 PM.
-# MAGIC     - Metrics Comparison Over Time: The distribution of metrics such as steps, distance, and calories burned varies over time.
+# MAGIC - Daily Activity:
+# MAGIC     - Users tend to be more active during the morning and early afternoon, with a peak in steps between 8:00 AM and 7:00 PM.
+# MAGIC     - The distribution of the main metrics such as steps, distance, and calories burned varies over time.
 # MAGIC
-# MAGIC - Intensity of Activities:
-# MAGIC     - Users Classification: Users were categorized into intensity levels based on average METs. Most users were classified as engaging in "Medium Intensity" activities.
-# MAGIC     - METs Distribution: Exploring the distribution of METs provided insights into the range of activity intensities recorded by the devices.
+# MAGIC - Users Classification by Intensity Level:
+# MAGIC     - Users were classified into intensity levels based on the average METs, finding as "Medium Intensity" the most popular among the users.
+# MAGIC     - METs distribution provided insights into the range of activity intensities recorded by the devices.
 # MAGIC
-# MAGIC - Sleep Patterns:
-# MAGIC     - Identifying Sleep Patterns: Analyzing sleep data revealed average sleep durations for each day of the week.
-# MAGIC     - User Segmentation: Users were segmented based on their activity and sleep patterns. Segments include "Less Active, Less Sleep", "Less Active, More Sleep", "More Active, More Sleep" and "More Active, Less Sleep", identifying the "Less Active, Less Sleep" segment as the most popular.
-# MAGIC     - Sleep and Calories Comparison: Examining the relationship between sleep metrics and calories burned highlighted variations in sleep duration and calories expended during activities.
+# MAGIC - Users Classification by Activites And Sleep Routines:
+# MAGIC     - Users were classified based on their activity and sleep routines. The segments include:
+# MAGIC         - "Less Active, Less Sleep" (most popular among our users), 
+# MAGIC         - "Less Active, More Sleep", 
+# MAGIC         - "More Active, More Sleep"
+# MAGIC         - "More Active, Less Sleep", 
+# MAGIC     - Analysis of the correlation between sleep metrics and calories burned pointed the variations in sleep duration and calorie expenditure during activities.
 # MAGIC
 # MAGIC - Heartrate and Calories: 
 # MAGIC     - In some individuals, high heartrate does not always mean higher calorie consumption. We should strive to recommend tailored training for each user, based on their own metabolism, to maximize calorie expenditure.
